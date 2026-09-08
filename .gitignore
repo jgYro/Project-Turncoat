@@ -1,0 +1,11 @@
+.nimble/
+nimbledeps/
+nimble.paths
+*.nimble-sync
+nimcache/
+bin/
+tests/test_arxiv
+tests/test_client
+artifacts/
+.playwright-mcp/
+.DS_Store

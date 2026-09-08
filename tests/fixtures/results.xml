@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <title>Test fixture, not live search results</title>
+  <opensearch:totalResults>21</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <opensearch:itemsPerPage>10</opensearch:itemsPerPage>
+  <entry>
+    <id>http://arxiv.org/abs/1706.03762v7</id>
+    <title>Attention Is
+      All You Need</title>
+    <summary>We introduce a model based on attention. This fixture tests Unicode, such as Schrödinger, and XML entities: A &amp; B &lt; C.</summary>
+    <author><name>Ashish Vaswani</name></author>
+    <author><name>Noam Shazeer</name></author>
+    <published>2017-06-12T17:57:34Z</published>
+    <updated>2023-08-02T00:00:00Z</updated>
+    <category term="cs.CL"/>
+    <category term="cs.LG"/>
+    <arxiv:primary_category term="cs.CL"/>
+    <arxiv:comment>Test notes &amp; details</arxiv:comment>
+    <arxiv:doi>10.0000/test-fixture</arxiv:doi>
+    <arxiv:journal_ref>Test Journal</arxiv:journal_ref>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/hep-ex/0307015v1</id>
+    <title>Legacy identifier example</title>
+    <summary>An older paper with optional metadata omitted.</summary>
+    <author><name>H1 Collaboration</name></author>
+    <published>2003-07-07T13:46:39Z</published>
+    <updated>2003-07-07T13:46:39Z</updated>
+    <category term="hep-ex"/>
+    <arxiv:primary_category term="hep-ex"/>
+  </entry>
+</feed>

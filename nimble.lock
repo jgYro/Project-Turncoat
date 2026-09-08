@@ -1,0 +1,250 @@
+{
+  "version": 2,
+  "packages": {
+    "nim": {
+      "version": "2.2.10",
+      "vcsRevision": "3e3da86e4eaccd23f4ce43df9b0a31b16c707347",
+      "url": "https://github.com/nim-lang/Nim.git",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+      }
+    },
+    "picohttpparser": {
+      "version": "0.11.0",
+      "vcsRevision": "2e1e6d9c00aa4ab8da1641274baa1729691ea03c",
+      "url": "https://github.com/philip-wernersbach/nim-picohttpparser",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "c2d6230ed5157d5745411d34f686f224c2334201"
+      }
+    },
+    "microasynchttpserver": {
+      "version": "0.11.0",
+      "vcsRevision": "2f2065143261e6cf07a8f45f4e8ef38575657745",
+      "url": "https://github.com/philip-wernersbach/microasynchttpserver",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "picohttpparser"
+      ],
+      "checksums": {
+        "sha1": "21f3f977f681946cc87bad8fbccc279d109f1ccb"
+      }
+    },
+    "websocket": {
+      "version": "0.5.2",
+      "vcsRevision": "405f49382fbd482901a3d72bd7775569ae433413",
+      "url": "https://github.com/niv/websocket.nim",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "295fee0e5faeb3cd1b0c4aa2c9bd97c526696618"
+      }
+    },
+    "illwill": {
+      "version": "0.3.1",
+      "vcsRevision": "2fe96f5c5a6e216e84554d92090ce3d47460667a",
+      "url": "https://github.com/johnnovak/illwill",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "ecec6c88a8f0d7e06e4ca6a4405206845357e737"
+      }
+    },
+    "nimja": {
+      "version": "0.8.7",
+      "vcsRevision": "2ab66e6520e0b0ec89d4f196e5daf84876c01488",
+      "url": "https://github.com/enthus1ast/nimja",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "a15b5860fb1926e682faf004ec1efc1d655d9b09"
+      }
+    },
+    "checksums": {
+      "version": "0.2.2",
+      "vcsRevision": "0845c735a9746188b2257ee2cff672eb6ec26e8a",
+      "url": "https://github.com/nim-lang/checksums",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "6357ab195ec23e0e0a54d4d8b5e0212456bf899e"
+      }
+    },
+    "asynctools": {
+      "version": "0.1.1",
+      "vcsRevision": "0e6bdc3ed5bae8c7cc9e03cfbf66b7c882a908a7",
+      "url": "https://github.com/cheatfate/asynctools",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "54314dceabb06b20908ecb0f2c007e9ff3aaa054"
+      }
+    },
+    "httpbeast": {
+      "version": "0.4.2",
+      "vcsRevision": "75008aaba497479df4023d52880086deae6385e3",
+      "url": "https://github.com/dom96/httpbeast",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "asynctools"
+      ],
+      "checksums": {
+        "sha1": "ceacc8345c9513bd69c4bdb36dd2cb270e8614c4"
+      }
+    },
+    "cligen": {
+      "version": "1.11.0",
+      "vcsRevision": "bdce5ed5ae8b222321945648b30c39fbc2bed272",
+      "url": "https://github.com/c-blake/cligen.git",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "7ab5190b7ea21aab752bcd03f2ca2b71b048ec4f"
+      }
+    },
+    "wepoll": {
+      "version": "0.1.2",
+      "vcsRevision": "07fb549ecf656f9aab957b78fb0d1e2d2e47a76f",
+      "url": "https://github.com/ringabout/wepoll",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "7c9818403ac159af1b3eced3f5d286e1f9c477d5"
+      }
+    },
+    "ioselectors": {
+      "version": "0.2.0",
+      "vcsRevision": "c9344036936a49db3ff1bce97e0896d6aabcf22d",
+      "url": "https://github.com/ringabout/ioselectors",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "wepoll"
+      ],
+      "checksums": {
+        "sha1": "c6ab3f5cabc4a40f6cbeeb6701be0f3c6c23f6b1"
+      }
+    },
+    "httpx": {
+      "version": "0.3.8",
+      "vcsRevision": "47cb5e79c6070153240f7395134885a114b0f039",
+      "url": "https://github.com/ringabout/httpx",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "ioselectors"
+      ],
+      "checksums": {
+        "sha1": "31ef637d4136a2c7deebce51c02c27145692d4f5"
+      }
+    },
+    "unicodedb": {
+      "version": "0.14.1",
+      "vcsRevision": "b70aac15a3fdc7647997bd6cd10bccd8b2c00e54",
+      "url": "https://github.com/nitely/nim-unicodedb",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "a9dc8cfd3c0546957d1a99d2c6ace8fc5034f330"
+      }
+    },
+    "regex": {
+      "version": "0.26.3",
+      "vcsRevision": "16f96a41f9ff74372268eef656b671d7e5355930",
+      "url": "https://github.com/nitely/nim-regex",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "unicodedb"
+      ],
+      "checksums": {
+        "sha1": "272ec0cfdf4cdb10afefd799ddd10693fce2b490"
+      }
+    },
+    "nimcrypto": {
+      "version": "0.7.3",
+      "vcsRevision": "b3dbc9c4d08e58c5b7bfad6dc7ef2ee52f2f4c08",
+      "url": "https://github.com/cheatfate/nimcrypto",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "f72b90fe3f4da09efa482de4f8729e7ee4abea2f"
+      }
+    },
+    "ws": {
+      "version": "0.6.0",
+      "vcsRevision": "c9c0c7b51e2e83cc9305a895a0b144a297b4bea8",
+      "url": "https://github.com/treeform/ws",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "b854365c3c985dc6be7cf36337aa0d4dce7e1f33"
+      }
+    },
+    "websocketx": {
+      "version": "0.1.2",
+      "vcsRevision": "b0ea475e3c50a31cc45cd7031f76707b55d7ebb4",
+      "url": "https://github.com/ringabout/websocketx",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "ws",
+        "httpx"
+      ],
+      "checksums": {
+        "sha1": "360af04be0163e1a56eadf7106564602a0bf1cfe"
+      }
+    },
+    "happyx": {
+      "version": "4.7.4",
+      "vcsRevision": "6298ad771ed8132ad78372e851f4789a1e34b2c4",
+      "url": "https://github.com/HapticX/happyx",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "checksums",
+        "cligen",
+        "illwill",
+        "regex",
+        "httpx",
+        "microasynchttpserver",
+        "httpbeast",
+        "nimja",
+        "websocket",
+        "websocketx",
+        "nimcrypto"
+      ],
+      "checksums": {
+        "sha1": "841bb6b88b3f35b558b92cae8e954b52dcecbb8f"
+      }
+    }
+  },
+  "tasks": {}
+}
