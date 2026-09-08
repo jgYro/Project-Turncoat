@@ -1,0 +1,26 @@
+{
+  "results": {
+    "total_num_results": 23,
+    "total_num_pages": 3,
+    "num_page": 0,
+    "cluster": [{"result": [
+      {"patent": {
+        "publication_number": "US1234567B1",
+        "title": " Synthetic <b>neural</b> device &amp; sensor &hellip; ",
+        "snippet": "A synthetic fixture with &lt;untrusted&gt; text. <script>alert(1)</script>",
+        "inventor": "Renée Example",
+        "assignee": "Research &amp; Development",
+        "priority_date": "2019-03-01",
+        "filing_date": "2020-03-01",
+        "publication_date": "2021-06-10",
+        "grant_date": "2021-06-10",
+        "pdf": "aa/bb/cc/fixture/US1234567B1.pdf"
+      }},
+      {"patent": {
+        "publication_number": "WO2020123456A1",
+        "title": "Second synthetic publication",
+        "pdf": ""
+      }}
+    ]}]
+  }
+}

@@ -14,12 +14,12 @@ proc tBody(stmt: TagRef): TagRef =
   return buildHtml(body):
     {stmt}
 
-proc attr(value: string): string =
+proc attr*(value: string): string =
   ## HappyX escapes text nodes; attribute values also need entity escaping.
   value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     .replace("\"", "&quot;").replace("'", "&#39;")
 
-proc choices(items: openArray[(string, string)]; selected: string): TagRef =
+proc choices*(items: openArray[(string, string)]; selected: string): TagRef =
   return buildHtml:
     for (value, label) in items:
       if value == selected:
@@ -166,18 +166,25 @@ proc renderResults(options: SearchOptions; data: SearchResult; error: string): T
       tP(class = "limit-note"):
         "Showing the first 30,000 matches available through the API. Refine your search for more focused results."
 
-proc siteHeader(): TagRef =
+proc siteHeader*(source = "arxiv"): TagRef =
+  let name = if source == "patents": "patents" else: "arXiv"
+  let home = if source == "patents": "/patents" else: "/"
   return buildHtml:
     tA(class = "skip-link", href = "#results"): "Skip to results"
     tHeader(class = "site-header wrap"):
-      tA(class = "brand", href = "/", "aria-label" = "arXiv Explorer home"):
+      tA(class = "brand", href = home, "aria-label" = attr(name & " Explorer home")):
         tSpan(class = "brand-mark", "aria-hidden" = "true"): "✳"
         tSpan:
-          "arXiv"
+          {name}
           tSpan(class = "brand-divider"): "/"
           tSpan(class = "brand-light"): "explorer"
       tNav("aria-label" = "Main navigation"):
-        tA(class = "active", href = "/"): "Discover"
+        if source == "arxiv":
+          tA(class = "active", href = "/", "aria-current" = "page"): "Papers"
+          tA(href = "/patents"): "Patents"
+        else:
+          tA(href = "/"): "Papers"
+          tA(class = "active", href = "/patents", "aria-current" = "page"): "Patents"
         tA(href = "#search-guide"):
           "Search guide "
           tSpan("aria-hidden" = "true"): "↗"
@@ -331,20 +338,21 @@ proc resultsSection(options: SearchOptions; data: SearchResult; error: string): 
           tButton(class = "sort-apply", "type" = "submit", form = "search-form"): "Update"
       {renderResults(options, data, error)}
 
-proc siteFooter(): TagRef =
+proc siteFooter*(source = "arxiv"): TagRef =
+  let name = if source == "patents": "patents" else: "arXiv"
+  let provider = if source == "patents": "Google Patents" else: "arXiv"
+  let providerUrl = if source == "patents": "https://patents.google.com" else: "https://arxiv.org"
   return buildHtml:
     tFooter(class = "site-footer wrap"):
-      tSpan(class = "footer-brand"): "arXiv / explorer"
+      tSpan(class = "footer-brand"): "{name} / explorer"
       tP:
         "Independent discovery interface. Metadata provided by "
-        tA(href = "https://arxiv.org", target = "_blank", rel = "noopener noreferrer"): "arXiv"
+        tA(href = providerUrl, target = "_blank", rel = "noopener noreferrer"): {provider}
         "."
       tButton(id = "copy-search", "type" = "button", hidden = ""): "Copy search link ↗"
     tDiv(class = "sr-only", id = "status", role = "status", "aria-live" = "polite")
 
-proc renderPage*(options: SearchOptions; data = SearchResult(); error = ""): TagRef =
-  let title = if options.query.len > 0: options.query & " — arXiv Explorer"
-    else: "arXiv Explorer — Follow your curiosity"
+proc pageDocument*(title, description: string; content: TagRef): TagRef =
   # The document declaration is a node too; all page markup uses the DSL below.
   let doctype = initTag("!DOCTYPE")
   doctype.addArg("html")
@@ -354,18 +362,25 @@ proc renderPage*(options: SearchOptions; data = SearchResult(); error = ""): Tag
       tHead:
         tMeta(charset = "utf-8")
         tMeta(name = "viewport", content = "width=device-width, initial-scale=1")
-        tMeta(name = "description", content = "A quieter way to discover open research. Search arXiv papers by topic, author, discipline, and date.")
+        tMeta(name = "description", content = attr(description))
         tMeta(name = "color-scheme", content = "light")
         tTitle: {title}
         tLink(rel = "icon", href = "/favicon.svg", "type" = "image/svg+xml")
         tLink(rel = "stylesheet", href = "/assets/style.css")
         tScript(src = "/assets/app.js", "defer" = "")
       tBody:
-        {siteHeader()}
-        tMain(class = "wrap"):
-          {hero()}
-          {searchForm(options)}
-          tDiv(class = "workspace"):
-            {filters(options)}
-            {resultsSection(options, data, error)}
-        {siteFooter()}
+        {content}
+
+proc renderPage*(options: SearchOptions; data = SearchResult(); error = ""): TagRef =
+  let title = if options.query.len > 0: options.query & " — arXiv Explorer"
+    else: "arXiv Explorer — Follow your curiosity"
+  let content = buildHtml:
+    {siteHeader()}
+    tMain(class = "wrap"):
+      {hero()}
+      {searchForm(options)}
+      tDiv(class = "workspace"):
+        {filters(options)}
+        {resultsSection(options, data, error)}
+    {siteFooter()}
+  pageDocument(title, "A quieter way to discover open research. Search arXiv papers by topic, author, discipline, and date.", content)

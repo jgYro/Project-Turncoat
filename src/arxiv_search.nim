@@ -1,6 +1,7 @@
-import std/[asyncdispatch, httpcore, os, strutils]
+import std/[asyncdispatch, httpcore, os, strutils, json]
 import happyx
 import arxiv, arxiv_client, views
+import patents, patents_client, patent_views
 
 const
   css = staticRead("../public/style.css")
@@ -18,6 +19,7 @@ when isMainModule:
   if port < 1 or port > 65535: quit("PORT must be between 1 and 65535.")
   serve getEnv("HOST", "127.0.0.1"), port:
     var client = newArxivClient(getEnv("ARXIV_API_URL", "https://export.arxiv.org/api/query"))
+    var patentClient = newPatentsClient(getEnv("PATENTS_ORIGIN", "https://patents.google.com"))
 
     get "/":
       var options = defaultOptions()
@@ -37,6 +39,52 @@ when isMainModule:
       for name, value in responseHeaders("text/html; charset=utf-8"):
         outHeaders[name] = value
       return renderPage(options, data, message)
+
+    get "/patents":
+      var options = defaultPatentOptions()
+      var data: JsonNode
+      var message = ""
+      try:
+        options = patentOptionsFromQuery(req.url.query)
+        options.validate()
+        if options.hasSearch: data = await patentClient.search(options)
+      except ValueError as error:
+        message = error.msg
+        statusCode = 400
+      except ApiError as error:
+        message = error.msg
+        statusCode = error.status
+      for name, value in responseHeaders("text/html; charset=utf-8"):
+        outHeaders[name] = value
+      return renderPatentPage(options, data, message)
+
+    get "/api/patents/search":
+      var data: JsonNode
+      try:
+        data = await patentClient.search(patentOptionsFromQuery(req.url.query))
+      except ValueError as error:
+        statusCode = 400
+        data = patentErrorJson(400, error.msg)
+      except ApiError as error:
+        statusCode = error.status
+        data = patentErrorJson(error.status, error.msg)
+      for name, value in responseHeaders("application/json; charset=utf-8"):
+        outHeaders[name] = value
+      return data
+
+    get "/api/patents/{publication}":
+      var data: JsonNode
+      try:
+        data = await patentClient.lookup(publication)
+      except ValueError as error:
+        statusCode = 400
+        data = patentErrorJson(400, error.msg)
+      except ApiError as error:
+        statusCode = error.status
+        data = patentErrorJson(error.status, error.msg)
+      for name, value in responseHeaders("application/json; charset=utf-8"):
+        outHeaders[name] = value
+      return data
 
     get "/assets/style.css":
       req.answer(css, Http200, responseHeaders("text/css; charset=utf-8"))

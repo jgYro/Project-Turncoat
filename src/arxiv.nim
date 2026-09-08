@@ -1,5 +1,7 @@
 ## Query validation and Atom parsing are independent of the web framework.
 import std/[strutils, uri, times, xmlparser, xmltree]
+import api_errors
+export api_errors
 
 type
   SearchOptions* = object
@@ -12,8 +14,6 @@ type
   SearchResult* = object
     total*, start*, pageSize*: int
     papers*: seq[Paper]
-  ApiError* = object of CatchableError
-    status*: int
 
 const
   MaxResults* = 30000
@@ -30,10 +30,6 @@ const
     ("abs", "Abstract"), ("id", "arXiv IDs"), ("raw", "Advanced query")]
   Sorts* = [("relevance", "Most relevant"), ("newest", "Newest first"),
     ("updated", "Recently updated"), ("oldest", "Oldest first")]
-
-proc apiError*(message: string; status = 502): ref ApiError =
-  result = newException(ApiError, message)
-  result.status = status
 
 proc defaultOptions*(): SearchOptions =
   SearchOptions(field: "all", sort: "relevance", page: 1, pageSize: 10)

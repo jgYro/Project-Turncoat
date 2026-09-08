@@ -9,6 +9,12 @@
   --serif:Georgia,'Times New Roman',serif;
   --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
+.patent-snippet {
+  color:var(--muted);
+  line-height:1.75;
+  margin:12px 0 20px;
+  overflow-wrap:anywhere;
+}
 * {
   box-sizing:border-box;
 }
@@ -906,7 +912,7 @@ a.page-button:hover {
     gap:20px;
     font-size:11px;
   }
-  .site-header nav a:first-child {
+  .site-header nav a:last-child {
     display:none;
   }
   .hero {

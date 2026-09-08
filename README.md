@@ -1,6 +1,6 @@
-# arXiv Explorer
+# Research Explorer: arXiv & Google Patents
 
-A responsive research search interface written in **Nim 2.2** with **HappyX 4.7.4**. HappyX renders HTML on the server and queries the arXiv Atom API. There is no API key, account, JavaScript framework, or frontend build step.
+A responsive research search interface written in **Nim 2.2** with **HappyX 4.7.4**. HappyX renders HTML on the server and searches arXiv papers and Google Patents. There is no API key, account, JavaScript framework, or frontend build step.
 
 The page and reusable sections in `src/views.nim` use HappyX's `return buildHtml:` syntax with nested `tHtml`, `tHead`, `tBody`, and other tags. Helpers return `TagRef` values and compose through `{helper(...)}` expressions. The route returns the HTML tree directly, with the appropriate response status and headers. Dynamic text is escaped by HappyX; dynamic attribute values are escaped before they enter the tree.
 
@@ -16,7 +16,7 @@ nimble --nimbleDir:.nimble build
 ./bin/arxiv_search
 ```
 
-Open **http://127.0.0.1:5000**. Dependencies stay in the project's `.nimble` directory. The checked-in lockfile pins dependency revisions; it records numeric versions for HappyX's commit-based dependencies so Nimble correctly resolves their installed source directories.
+Open **http://127.0.0.1:5000** for papers or **http://127.0.0.1:5000/patents** for patents. Dependencies stay in the project's `.nimble` directory. The checked-in lockfile pins dependency revisions; it records numeric versions for HappyX's commit-based dependencies so Nimble correctly resolves their installed source directories.
 
 To use a different local port:
 
@@ -38,7 +38,19 @@ PORT=8080 ./bin/arxiv_search
 
 The homepage offers starter searches and does not fetch or invent results. Unavailable services, invalid queries, and empty results have dedicated states.
 
-## API behavior
+## Patent search and JSON API
+
+The **Patents** tab searches by topic, assignee, inventor, patent office, and filing date. Results link to Google Patents and available PDFs. Sorting, filters, pagination, and shareable URLs work without JavaScript, using HappyX `buildHtml` just like the paper interface.
+
+```sh
+curl --get 'http://127.0.0.1:5000/api/patents/search' \
+  --data-urlencode 'q=neural network' --data-urlencode 'country=US'
+curl 'http://127.0.0.1:5000/api/patents/US9014905B1'
+```
+
+See [the API reference](docs/patents-api.md) for parameters, response fields, pagination, errors, caching, and testing overrides. The adapter uses Google Patents' **undocumented website endpoints**, which may change or become unavailable. It is an independent integration, not an official Google API. Google's [published patent datasets](https://github.com/google/patents-public-data) offer a separate BigQuery option for bulk data access.
+
+## arXiv API behavior
 
 Following the [arXiv API manual](https://info.arxiv.org/help/api/user-manual.html#detailed_examples), the application parses Atom metadata, honors pagination and sort parameters, and handles API errors returned inside Atom feeds as well as HTTP failures.
 
@@ -54,7 +66,23 @@ nimble --nimbleDir:.nimble test
 
 Tests cover query fields and phrases, Boolean grouping, ID versions, dates, URL encoding, pagination, Atom namespaces and metadata, empty/error feeds, HTML escaping, and safe paper links. A local HTTP fixture server verifies caching, concurrent duplicate searches, request pacing, upstream failures, timeout, and recovery without depending on arXiv availability. These integration tests require permission to bind a loopback port.
 
-`GET /health` returns `ok` without contacting arXiv.
+Patent tests cover nested URL encoding, filters, publication identifiers, search and document parsing, optional metadata, empty results, schema changes, safe links, and the HappyX page. A second local HTTP fixture server checks both patent endpoints' transport, including redirects, rate limits, oversized responses, queue limits, timeout, and recovery.
+
+`GET /health` returns `ok` without contacting either provider.
+
+For browser checks without contacting Google, run the **Nim fixture provider** in one terminal:
+
+```sh
+nim c -r --out:bin/patents_fixture tests/patents_fixture_server.nim
+```
+
+Start a separate app instance in another terminal:
+
+```sh
+PORT=5010 PATENTS_ORIGIN=http://127.0.0.1:5011 ./bin/arxiv_search
+```
+
+Open `http://127.0.0.1:5010/patents`. This instance uses synthetic test data: search `empty` for no results, `busy` for a rate-limit error, or any other query for the sample records. Lookup `US1234567B1` returns the synthetic document. Stop both processes when finished. The application and test providers are Nim; Python is not required.
 
 ## Files
 
@@ -64,7 +92,12 @@ Tests cover query fields and phrases, Boolean grouping, ID versions, dates, URL 
 | `src/arxiv.nim` | Query validation, URLs, models, Atom parsing |
 | `src/arxiv_client.nim` | Async HTTP, caching, pacing, and errors |
 | `src/views.nim` | Escaped, accessible server-rendered page |
+| `src/patents.nim` | Patent queries, URLs, provider parsing, and JSON responses |
+| `src/patents_client.nim` | Google Patents HTTP adapter, cache, and request queue |
+| `src/patent_views.nim` | HappyX patent search page |
+| `src/api_errors.nim` | Shared provider error type |
+| `docs/patents-api.md` | Patent JSON API reference |
 | `public/` | Responsive styles and small progressive enhancements |
 | `tests/` | Unit and HTTP integration tests; synthetic fixtures |
 
-Framework reference: [HappyX documentation](https://hapticx.github.io/happyx/). This is an independent interface and is not affiliated with arXiv.
+Framework reference: [HappyX documentation](https://hapticx.github.io/happyx/). This is an independent interface and is not affiliated with arXiv or Google.

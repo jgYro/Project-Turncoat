@@ -4,14 +4,14 @@ const status = document.querySelector('#status');
 function resetLoading() {
   form.removeAttribute('aria-busy');
   document.body.classList.remove('is-searching');
-  document.querySelector('.button-label').textContent = 'Search papers';
+  document.querySelector('.button-label').textContent = form.dataset.searchLabel || 'Search papers';
 }
 
 form.addEventListener('submit', () => {
   document.body.classList.add('is-searching');
   form.setAttribute('aria-busy', 'true');
   document.querySelector('.button-label').textContent = 'Searching…';
-  status.textContent = 'Searching arXiv. This may take a few moments.';
+  status.textContent = `Searching ${form.dataset.source || 'arXiv'}. This may take a few moments.`;
 });
 
 window.addEventListener('pageshow', resetLoading);
