@@ -8,7 +8,7 @@ async (page) => {
     const paragraph='Original source text: 杨超. A bridge response is measured and compared with the model.\n\n';
     const record={...reference,title:'Bridge model updating method and measured structural response',authors:['杨超'],abstract:paragraph.repeat(60),sourceUrl:'https://patents.google.com/patent/US1234567B1/en',pdfUrl:'https://patentimages.storage.googleapis.com/fixture.pdf'};
     p.on('pageerror',error=>errors.push(error.message));
-    await c.addInitScript(({reference,paragraph})=>sessionStorage.setItem('turncoat-chat-v1:'+JSON.stringify(reference),JSON.stringify({messages:[{role:'user',content:'Summarize the attached record.'},{role:'assistant',model:'granite4.1:8b',content:'## Source summary\n\n'+paragraph.repeat(30)}]})),{reference,paragraph});
+    await c.addInitScript(({reference,paragraph})=>{if(window===window.top&&location.pathname==='/chat')sessionStorage.setItem('turncoat-chat-v1:'+JSON.stringify(reference),JSON.stringify({messages:[{role:'user',content:'Summarize the attached record.'},{role:'assistant',model:'granite4.1:8b',content:'## Source summary\n\n'+paragraph.repeat(30)}]}));},{reference,paragraph});
     await c.route('**/api/**',async route=>{
       const url=route.request().url(),reply=data=>route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
       if(url.endsWith('/config'))return reply({model:'granite4.1:8b',baseUrl:'http://fixture/v1',maxMessageBytes:16000,maxMessages:24,maxConversationBytes:64000});
@@ -28,6 +28,10 @@ async (page) => {
     try{
       await p.goto('http://127.0.0.1:5010/chat?source=patents&id=US1234567B1');
       await p.locator('.chat-message.assistant').waitFor();await settle();await fit();
+      const contextRoot=p.locator('#context-tree .json-tree>details');
+      assert(await contextRoot.getAttribute('open')===null,'Chat JSON starts collapsed');
+      await contextRoot.locator(':scope>summary').click();
+      if(width<=760)await p.locator('.chat-workspace').evaluate(e=>e.scrollTop=0);
       const compose=await p.locator('.chat-compose').boundingBox();
       assert(compose.y+compose.height<=height+1,'Composer stays visible');
       await p.locator('#messages').evaluate(e=>e.scrollTop=0);await wheel('#messages');
@@ -45,6 +49,10 @@ async (page) => {
       if(width===1366||width===390)await p.screenshot({path:'/private/tmp/turncoat-scroll-chat-'+width+'.png'});
       await p.goto('http://127.0.0.1:5010/document?source=patents&id=US1234567B1');
       await p.locator('#document-analysis').waitFor({state:'visible'});await settle();await fit();
+      const recordRoot=p.locator('#document-tree .json-tree>details');
+      assert(await recordRoot.getAttribute('open')===null,'Document JSON starts collapsed');
+      await recordRoot.locator(':scope>summary').click();
+      if(width<=760)await p.locator('#view-record').evaluate(e=>e.scrollTop=0);
       const toolbar=await p.locator('.document-toolbar').boundingBox();
       await wheel(width>760?'.reader-record article':'#view-record');
       assert((await p.locator('.document-toolbar').boundingBox()).y===toolbar.y,'Record scrolling must keep document tabs visible');
@@ -56,8 +64,8 @@ async (page) => {
       await p.locator('#tab-pdf').click();await p.locator('#pdf-container iframe').waitFor();
       const frame=await p.locator('#pdf-container iframe').boundingBox();
       assert(frame.height>100&&frame.y+frame.height<=height,'PDF viewer fills the available document pane');
-      await p.locator('#tab-text').click();await p.locator('#load-pdf-text').click();
-      await p.waitForFunction(()=>document.querySelector('#load-pdf-text').textContent==='Text loaded');
+      await p.locator('#tab-text').click();
+      await p.waitForFunction(()=>document.querySelector('#load-pdf-text').textContent==='PDF context ready');
       await wheel('#document-text');
       assert((await p.locator('.document-toolbar').boundingBox()).y===toolbar.y,'Text scrolling must keep document tabs visible');await fit();
       for(const path of ['/','/patents','/institutions','/chat/guide']){

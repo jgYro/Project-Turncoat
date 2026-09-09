@@ -24,7 +24,7 @@ Cite source URLs and relevant metadata fields or PDF passages. Do not invent pag
     }catch{return false;}
   })();
   const encoder=new TextEncoder();
-  let config=null, messages=[], busy=false, contextReady=!context, pdfReady=false, draft='', analysisScope='';
+  let config=null, messages=[], busy=false, contextReady=!context, pdfReady=false, pdfContext=null, draft='', analysisScope='';
   let pendingTimer=null,pendingStarted=0,pendingPhase='context';
   const welcome=el('chat-welcome');
   function status(text,error=false){el('chat-status').textContent=text;el('chat-status').classList.toggle('error',error);}
@@ -32,7 +32,7 @@ Cite source URLs and relevant metadata fields or PDF passages. Do not invent pag
     const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Accept':'application/json',...(body===undefined?{}:{'Content-Type':'application/json','X-Turncoat-Token':token})},body:body===undefined?undefined:JSON.stringify(body)});
     const data=await response.json();if(!response.ok)throw new Error(data.error?.message||`Request failed (${response.status}).`);return data;
   }
-  function analysisStatus(text,error=false){if(!analysisId)return;analysisScope=text;el('analysis-status').hidden=false;el('analysis-status').textContent=text;el('analysis-status').classList.toggle('error',error);}
+  function analysisStatus(text,error=false){if(!analysisId)return;analysisScope=text;el('analysis-status').hidden=!text;el('analysis-status').textContent=text;el('analysis-status').classList.toggle('error',error);}
   function save(){try{sessionStorage.setItem(key,JSON.stringify({messages,includePdf:el('include-pdf').checked,draft,analysisScope,pdfScope:el('pdf-context-status').textContent}));}catch{status('Browser storage is unavailable; this conversation will last until you leave this page.',true);}}
   function messageIdentity(role,model){
     const identity=document.createElement('div');identity.className='message-identity';
@@ -101,9 +101,9 @@ Cite source URLs and relevant metadata fields or PDF passages. Do not invent pag
   function controls(){el('send-message').disabled=busy||!config||!contextReady;el('new-chat').disabled=busy;el('chat-input').disabled=busy;el('include-pdf').disabled=busy||messages.length>0;document.body.classList.toggle('is-generating',busy);}
   async function preparePdf(){
     if(!context?.source||!el('include-pdf').checked||pdfReady)return;
-    el('pdf-context-status').textContent='Loading PDF text…';
-    const text=await request('/api/documents/text',context);pdfReady=true;
-    el('pdf-context-status').textContent=text.scope;
+    const text=await pdfContext?.prepare();
+    if(!text)throw new Error((pdfContext?.error?.message||'No PDF is listed for this record.')+' Retry PDF context or turn off Include extracted PDF text to use metadata only.');
+    pdfReady=true;
   }
   async function sendMessage(text,automatic=false){
     if(!text||busy||!config||!contextReady)return;
@@ -135,36 +135,47 @@ Cite source URLs and relevant metadata fields or PDF passages. Do not invent pag
   el('chat-form').addEventListener('submit',event=>{event.preventDefault();sendMessage(el('chat-input').value.trim());});
   el('chat-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();el('chat-form').requestSubmit();}});
   document.querySelectorAll('[data-prompt]').forEach(button=>button.addEventListener('click',()=>{el('chat-input').value=button.dataset.prompt;el('chat-input').focus();}));
-  el('new-chat').addEventListener('click',()=>{messages=[];draft='';el('chat-input').value='';analysisStatus('New conversation. Type a question to continue.');save();draw();status('New conversation.');el('chat-input').focus();});
+  el('new-chat').addEventListener('click',()=>{messages=[];draft='';el('chat-input').value='';el('include-pdf').checked=!!pdfContext;pdfContext?.prepare();analysisStatus('New conversation. Type a question to continue.');save();draw();status('New conversation.');el('chat-input').focus();});
   el('check-connection').addEventListener('click',async()=>{
     el('check-connection').disabled=true;el('connection-status').textContent='Checking model server…';el('connection-status').classList.remove('error');
     try{const data=await request('/api/llm/check',{});el('connection-status').textContent=data.modelAvailable?'Connected · model available':'Connected, but the configured model is not loaded. Available: '+data.models.join(', ');el('connection-status').classList.toggle('error',!data.modelAvailable);}
     catch(error){el('connection-status').textContent=error.message;el('connection-status').classList.add('error');}
     finally{el('check-connection').disabled=false;}
   });
-  el('include-pdf').addEventListener('change',()=>{pdfReady=false;el('pdf-context-status').textContent=el('include-pdf').checked?'PDF text will be extracted and included when you send.':'';save();});
+  el('include-pdf').addEventListener('change',()=>{if(el('include-pdf').checked)pdfContext?.prepare();save();});
+  el('retry-pdf-context').addEventListener('click',()=>pdfContext?.prepare(true));
   async function start(){
     config=await request('/api/llm/config');el('model-name').textContent=config.model;el('model-endpoint').textContent=config.baseUrl;
     try{const saved=JSON.parse(sessionStorage.getItem(key)||'null');if(Array.isArray(saved?.messages)&&saved.messages.length<=config.maxMessages&&saved.messages.every(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string')){messages=saved.messages;el('include-pdf').checked=!!saved.includePdf;draft=typeof saved.draft==='string'?saved.draft:'';analysisScope=typeof saved.analysisScope==='string'?saved.analysisScope:'';el('pdf-context-status').textContent=typeof saved.pdfScope==='string'?saved.pdfScope:'';}}catch{}
-    if(analysisId){el('conversation-title').textContent='AI Analysis';analysisStatus(analysisScope||'A review starts only from the AI Analysis button. Refreshing does not resend it.');}
+    if(analysisId){el('conversation-title').textContent='AI Analysis';analysisStatus(analysisScope);}
     el('chat-input').value=draft;
     draw();
     let hasPdf=false;
     if(context){
       el('remove-context').hidden=false;el('context-title').textContent='Loading attachment…';
       const record=await request('/api/llm/context',context);tree.update(record,'context');
+      if(['patents','arxiv'].includes(record.source)&&record.id){context.source=record.source;context.id=record.id;}
       hasPdf=!!record.pdfUrl;
       el('context-title').textContent=record.properties?.title||record.properties?.name||record.title||record.id;
       el('context-note').textContent='This record is included with each message. Source text is preserved.';
       if(context.source){el('pdf-option').hidden=false;el('context-document').href='/document?'+new URLSearchParams(context);el('context-document').hidden=false;el('context-note').textContent=record.recordScope||el('context-note').textContent;}
       else{const url=TurncoatDocumentLink(record.properties?.sourceUrl);if(url){el('context-document').href=url+'&'+new URLSearchParams(context);el('context-document').hidden=false;}}
+      if(hasPdf&&context.source){
+        if(!messages.length)el('include-pdf').checked=true;
+        pdfContext=new TurncoatPdfContext(context,state=>{
+          pdfReady=state.state==='ready';el('pdf-context-status').textContent=state.description;
+          el('pdf-context-status').classList.toggle('error',state.state==='error');
+          el('retry-pdf-context').hidden=state.state!=='error';
+        });
+        pdfContext.prepare();
+      }else{el('include-pdf').checked=false;el('pdf-option').hidden=true;el('pdf-context-status').textContent='No PDF is listed. Chat will use the attached metadata.';}
       contextReady=true;
     }else{el('context-tree').hidden=true;}
     controls();
     if(autoAnalysis&&!messages.length){
       el('include-pdf').checked=hasPdf;
       const prompt=analysisPrompt+(hasPdf?'':'\n\nEvidence scope: no PDF is listed for this record. Explicitly label this a metadata-only review.');
-      el('pdf-context-status').textContent=hasPdf?'Preparing PDF text for AI Analysis…':'No PDF is listed. Reviewing metadata only.';
+      if(!hasPdf)el('pdf-context-status').textContent='No PDF is listed. Reviewing metadata only.';
       el('chat-input').value=prompt;
       await sendMessage(prompt,true);
     }

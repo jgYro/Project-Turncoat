@@ -1,0 +1,3 @@
+# External PDF/OCR helper only; the application remains Nim/HappyX.
+docling[ocrmac]==2.126.0; sys_platform == 'darwin'
+docling==2.126.0; sys_platform != 'darwin'

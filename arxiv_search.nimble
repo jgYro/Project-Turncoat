@@ -28,6 +28,16 @@ task test, "Test research queries, provider parsing, rendering, and API behavior
   exec "nim c -r --path:src --out:bin/test_graph tests/test_graph.nim"
   exec "nim c -r --path:src --out:bin/test_investigations tests/test_investigations.nim"
   exec "nim c -r --path:src --out:bin/test_llm tests/test_llm.nim"
+  exec "nim c -r --path:src --out:bin/test_analysis tests/test_analysis.nim"
+  exec "nim c --out:bin/docling_fixture tests/docling_fixture.nim"
+  exec "nim c -r --path:src --out:bin/test_sharing_extraction tests/test_sharing_extraction.nim"
+
+task testSharing, "Test share snapshots and the bounded Docling CLI contract":
+  exec "nim c --out:bin/docling_fixture tests/docling_fixture.nim"
+  exec "nim c -r --path:src --out:bin/test_sharing_extraction tests/test_sharing_extraction.nim"
+
+task testAnalysis, "Test deterministic screening and saved drill-down evidence":
+  exec "nim c -r --path:src --out:bin/test_analysis tests/test_analysis.nim"
 
 task testLlm, "Test OpenAI-compatible chat and document extraction with local fixtures":
   exec "nim c -r --path:src --out:bin/test_llm tests/test_llm.nim"

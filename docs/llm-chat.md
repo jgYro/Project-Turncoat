@@ -96,15 +96,21 @@ three seconds between downloads. A bounded 16-document process cache uses a
 temporary directory. It is not a permanent document archive; a restart requires
 retrieval again. Graph records and their raw properties remain in SQLite.
 
-**Extracted text** runs Poppler `pdftotext` using process arguments, without a
-shell, with a 20-second extraction timeout. It reads up to the first 40 pages,
-then takes at most 32000 UTF-8 bytes without splitting characters. It preserves
-the extracted text and labels the limits. It does not OCR scanned pages, describe
-figures, or infer anything from the PDF viewer's pixels.
+**Extracted text** uses Poppler embedded text with local Docling OCR as a fallback
+for scanned PDFs. Both use process arguments without a shell. The limits remain
+40 pages and 32000 UTF-8 bytes; Poppler has a 20-second deadline and Docling has
+five minutes. The evidence scope names the extraction method. OCR can misread
+characters; verify quotations against the original PDF. No picture interpretation
+is performed. See [Docling installation and configuration](document-extraction.md).
+
+Opening the reader, a document chat, or a document drill-down automatically
+prepares PDF context and displays its state. Concurrent views share extraction;
+different PDFs queue up to eight waiting operations. This does not call the LLM.
 
 Choose **AI Analysis** to submit a document review immediately, or choose
-**Ask about this document**, then **Include extracted PDF text** before
-the first message to attach this extract. The checkbox locks once a conversation
+**Ask about this document** to ask a question with PDF text included by default.
+The **Include extracted PDF text** checkbox allows an explicit metadata-only
+choice before the first message. It locks once a conversation
 begins; New chat allows changing the context. Metadata stays available if PDF
 download or extraction fails. Such failures are shown and never replaced with
 fabricated document text.
@@ -156,7 +162,7 @@ JSON values and code remain text nodes; model-generated HTML is never inserted.
 Success returns `message`, `model`, `finishReason`, and `usage`. Errors use the
 existing `{"error":{"status":…, "message":…}}` shape. 400/413 indicate invalid
 or oversized input, 403 a stale/absent form token, 404 a missing record, 429 a busy
-model or PDF operation, 502 an upstream/schema error, 503 an unavailable server
+model operation or full PDF queue, 502 an upstream/schema error, 503 an unavailable server
 or extractor, and 504 a timeout. The UI retains the unsent question on errors.
 
 ## Validation

@@ -64,7 +64,7 @@ try:
         check client.get(origin & "/assets/d3.v7.min.js").code == Http200
         check client.get(origin & "/assets/graph.js").code == Http200
         check client.get(origin & "/assets/app.css").code == Http200
-        for path in ["/chat", "/chat/guide", "/document", "/assets/chat.js", "/assets/chat.css", "/assets/chat-markdown.js", "/assets/markdown-it.min.js", "/assets/document.js", "/assets/json-tree.js", "/assets/json-tree.css", "/docs/llm-chat.md"]:
+        for path in ["/chat", "/chat/guide", "/document", "/assets/chat.js", "/assets/chat.css", "/assets/chat-markdown.js", "/assets/markdown.css", "/assets/markdown-it.min.js", "/assets/document.js", "/assets/json-tree.js", "/assets/json-tree.css", "/assets/pdf-context.js", "/docs/llm-chat.md", "/settings", "/assets/research.css", "/assets/research-ui.js", "/assets/settings.js", "/assets/drilldowns.js", "/docs/graph-drilldowns.md"]:
           check client.get(origin & path).code == Http200
         check cli(@["--port:" & $port, "serve"]).code != 0
       test "search, selected node and URL-encoded OIDs":
@@ -97,7 +97,7 @@ try:
         check config["model"].getStr.len > 0
         check not config.hasKey("apiKey")
         client.headers = newHttpHeaders({"Content-Type":"application/json"})
-        for path in ["/api/llm/chat", "/api/llm/check", "/api/llm/context", "/api/documents/record", "/api/documents/text", "/api/documents/prepare-pdf"]:
+        for path in ["/api/llm/chat", "/api/llm/check", "/api/llm/context", "/api/documents/record", "/api/documents/text", "/api/documents/prepare-pdf", "/api/drilldown/scan", "/api/drilldown/review", "/api/drilldown/report", "/api/drilldown/searches"]:
           check client.post(origin & path, "{}").code == Http403
         let page = client.getContent(origin & "/graph")
         client.headers["X-Turncoat-Token"] = page.split("name=\"turncoat-token\" content=\"")[1].split('"')[0]
@@ -110,6 +110,15 @@ try:
         for body in ["{}", "[]", "{\"source\":\"other\",\"id\":\"anything\"}", "{\"source\":\"arxiv\",\"id\":\"../secret\"}"]:
           check client.post(origin & "/api/documents/record", body).code == Http400
         check client.get(origin & "/api/documents/pdf?source=patents&id=US1234567B1").code == Http404
+        let catalog = client.jsonResponse("/api/drilldown/catalog")
+        check catalog["keywords"]["rules"].len > 20
+        check catalog["presets"].len == 4
+        for body in ["{}", "[]", "{", "{\"dataset\":\"demo\",\"node\":\"demo:person:1\",\"includePdf\":false}"]:
+          check client.post(origin & "/api/drilldown/scan",body).code == Http400
+        check client.post(origin & "/api/drilldown/author", """{"dataset":"other","node":"demo:person:1"}""").code == Http404
+        let searches=client.post(origin & "/api/drilldown/searches","{}")
+        check searches.code == Http200
+        check parseJson(searches.body)["total"].getInt == 0
       test "investigation endpoints reject forged and invalid writes without provider calls":
         check client.jsonResponse("/api/investigations")["investigations"].len == 0
         check client.jsonResponse("/api/investigations/absent", 404)["error"]["status"].getInt == 404
@@ -123,6 +132,29 @@ try:
           check response.code == Http400
           check parseJson(response.body)["error"]["status"].getInt == 400
         check client.jsonResponse("/api/investigations")["investigations"].len == 0
+      test "read-only sharing links preserve a snapshot and can be revoked":
+        let file=directory/"share-root.jsonl"
+        writeFile(file,"""{"type":"node","oid":"demo:investigation","label":"Investigation","properties":{"schema":"turncoat/investigation/v1","seed":"demo:paper:1","publicationNumber":"Synthetic share"}}""" & "\n")
+        check cli(@["import","demo",file]).code==0
+        client.headers=newHttpHeaders({"Content-Type":"application/json"})
+        check client.post(origin & "/api/shares/create","{}").code==Http403
+        let page=client.getContent(origin & "/graph")
+        client.headers["X-Turncoat-Token"]=page.split("name=\"turncoat-token\" content=\"")[1].split('"')[0]
+        check client.post(origin & "/api/shares/create","[]").code==Http400
+        let created=client.post(origin & "/api/shares/create","""{"dataset":"demo","includeReports":true}""")
+        check created.code==Http200
+        let share=parseJson(created.body)
+        let sharedPage=client.get(origin & share["path"].getStr)
+        check sharedPage.code==Http200
+        check "turncoat-token" notin sharedPage.body
+        check sharedPage.headers["Referrer-Policy"]=="no-referrer"
+        let data=client.get(origin & share["path"].getStr & "/data")
+        check data.code==Http200
+        check parseJson(data.body)["nodes"].len==5
+        check data.headers["Cache-Control"]=="no-store"
+        check client.post(origin & "/api/shares/revoke",$(%*{"dataset":"demo","token":share["token"]})).code==Http200
+        check client.get(origin & share["path"].getStr & "/data").code==Http404
+        check client.jsonResponse("/api/documents/config")["pageLimit"].getInt==40
   finally:
     client.close()
     server.terminate()

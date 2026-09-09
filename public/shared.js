@@ -1,0 +1,30 @@
+/* Only fetch this token's immutable snapshot. No workspace APIs or write token. */
+(() => {
+  const {make,note,link,renderAiFindings}=TurncoatResearch,el=id=>document.getElementById(id),tree=new TurncoatJsonTree(el('shared-properties'));
+  const token=location.pathname.split('/')[2];let snapshot,nodes=[],selected,svg,zoom,group;
+  const title=n=>n.properties.title||n.properties.name||n.id;
+  const colors={Patent:'#86ddd5',Paper:'#91a7ef','Name mention':'#ebc77f','Name search':'#81a7b5',Assignee:'#c492d0'};
+  function select(node){selected=node;el('shared-node').value=node.id;el('shared-node-title').textContent=title(node);el('shared-node-kind').textContent=node.label+' · '+node.id;tree.update(node.properties,node.id);el('shared-source').replaceChildren();
+    const url=node.properties.sourceUrl;if(url)el('shared-source').append(link('Original source ↗',url));
+    const host=el('shared-reports');host.replaceChildren();const reports=snapshot.reports.filter(r=>r.node===node.id);
+    for(const report of reports){const card=make('article','research-card');card.append(make('h3','',report.kind==='ai'?'Saved AI review':'Saved keyword scan'),note(report.createdAt+' · '+(report.model||report.result?.version||'')),note(report.evidence?.scope||''));
+      if(report.kind==='keywords'){const tags=make('div','research-tags');for(const tag of report.result?.tags||[])tags.append(make('span','research-tag '+tag.bucket,tag.tag+' · '+tag.count));card.append(tags,note('Literal terms indicate vocabulary, not end use.'));}
+      else{card.append(note('AI interpretation; located quotes do not verify the model’s assessment.'));renderAiFindings(card,report.result,report.evidence,{readOnly:true});if(report.result?.formatError)card.append(note(report.result.formatError));}
+      const details=make('details');details.append(make('summary','','Full saved report and evidence'));const json=make('div');details.append(json);new TurncoatJsonTree(json).update(report,report.id);card.append(details);host.append(card);
+    }
+    if(!reports.length)host.append(note('No analysis report is included for this node.'));
+    group?.selectAll('circle').attr('stroke-width',d=>d.id===node.id?3:1).attr('stroke',d=>d.id===node.id?'#fff':'#18383c');
+  }
+  function filter(){const q=el('shared-filter').value.trim().toLocaleLowerCase();el('shared-node').replaceChildren();for(const node of nodes.filter(n=>(title(n)+' '+n.id).toLocaleLowerCase().includes(q))){const option=make('option','',title(node));option.value=node.id;el('shared-node').append(option);}if(selected)el('shared-node').value=selected.id;}
+  function center(){if(!nodes.length)return;const bounds=el('shared-graph').getBoundingClientRect(),xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y),a=Math.min(...xs),b=Math.max(...xs),c=Math.min(...ys),d=Math.max(...ys),k=Math.min(2,(bounds.width-70)/Math.max(100,b-a),(bounds.height-70)/Math.max(100,d-c));svg.call(zoom.transform,d3.zoomIdentity.translate(bounds.width/2-k*(a+b)/2,bounds.height/2-k*(c+d)/2).scale(k));}
+  function render(){
+    nodes=snapshot.nodes.map(n=>({...n}));const edges=snapshot.links.map(e=>({...e}));svg=d3.select('#shared-graph').classed('shared-small',nodes.length<=30);svg.append('defs').append('marker').attr('id','shared-arrow').attr('viewBox','0 -5 10 10').attr('refX',18).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto').append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#527b86');group=svg.append('g');zoom=d3.zoom().scaleExtent([.02,8]).on('zoom',e=>group.attr('transform',e.transform));svg.call(zoom);
+    const simulation=d3.forceSimulation(nodes).force('links',d3.forceLink(edges).id(n=>n.id).distance(65)).force('charge',d3.forceManyBody().strength(-95)).force('center',d3.forceCenter()).stop();simulation.tick(180);
+    group.append('g').selectAll('line').data(edges).join('line').attr('stroke','#527b86').attr('marker-end','url(#shared-arrow)').attr('opacity',.55).attr('stroke-dasharray',d=>d.label==='name_search_hit'?'4 4':null).attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y).append('title').text(d=>d.label);
+    const items=group.append('g').selectAll('g').data(nodes).join('g').attr('class','shared-node').attr('role','button').attr('tabindex',0).attr('aria-label',d=>title(d)+', '+d.label).attr('transform',d=>`translate(${d.x},${d.y})`).on('click',(_,n)=>select(n)).on('keydown',(e,n)=>{if(['Enter',' '].includes(e.key)){e.preventDefault();select(n);}});
+    items.append('circle').attr('r',7).attr('fill',d=>colors[d.label]||'#bbc4c9');items.append('title').text(d=>title(d));items.append('text').attr('x',11).attr('y',4).text(d=>title(d).slice(0,34));filter();center();new ResizeObserver(center).observe(el('shared-graph'));select(nodes.find(n=>n.id===snapshot.job.seed)||nodes[0]);el('shared-download').disabled=false;
+  }
+  el('shared-center').addEventListener('click',center);el('shared-filter').addEventListener('input',filter);el('shared-node').addEventListener('change',()=>{const node=nodes.find(n=>n.id===el('shared-node').value);if(node)select(node);});
+  el('shared-download').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'})),a=make('a');a.href=url;a.download='turncoat-investigation.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+  (async()=>{try{if(!/^[a-f0-9]{64}$/.test(token))throw new Error('Invalid sharing link.');const response=await fetch('/shared/'+token+'/data',{cache:'no-store'});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'Snapshot unavailable.');snapshot=data;el('shared-title').textContent=(data.job.publicationNumber||data.dataset)+' / shared investigation';el('shared-status').textContent=data.createdAt+' · '+data.nodes.length+' nodes · '+data.links.length+' relationships · '+data.reports.length+' reports'+(data.reportsOmitted?' · '+data.reportsOmitted+' reports omitted at the snapshot limit':'');render();}catch(error){el('shared-status').textContent=error.message;el('shared-status').classList.add('error');}})();
+})();

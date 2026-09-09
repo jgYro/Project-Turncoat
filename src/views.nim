@@ -195,7 +195,13 @@ proc siteHeader*(source = "arxiv"): TagRef =
           tA(class = "active", href = "/chat", "aria-current" = "page"): "Chat"
         else:
           tA(href = "/chat"): "Chat"
-        if source in ["chat", "document", "chat-guide"]:
+        if source == "settings":
+          tA(class = "active",href = "/settings","aria-current" = "page"): "Settings"
+        else:
+          tA(href = "/settings"): "Settings"
+        if source == "settings":
+          tA(class = "nav-guide", href = "/docs/graph-drilldowns.md"): "Screening guide ↗"
+        elif source in ["chat", "document", "chat-guide"]:
           tA(class = "nav-guide", href = "/chat/guide"): "Chat guide ↗"
         else:
           tA(class = "nav-guide", href = "#search-guide"):

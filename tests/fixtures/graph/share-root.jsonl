@@ -1,0 +1,1 @@
+{"type":"node","oid":"demo:investigation","label":"Investigation","properties":{"schema":"turncoat/investigation/v1","seed":"demo:paper:1","publicationNumber":"Synthetic share","state":"completed","requests":0,"limits":{"maxNodes":500,"maxEdges":1000,"maxRequests":40},"events":[]}}

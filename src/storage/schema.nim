@@ -1,6 +1,6 @@
 import driver
 
-const SchemaVersion* = 1
+const SchemaVersion* = 3
 
 proc initializeSchema*(db: Connection) =
   db.execute("PRAGMA foreign_keys = ON")
@@ -59,3 +59,24 @@ proc initializeSchema*(db: Connection) =
         WHEN old.oid<>new.oid OR old.dataset<>new.dataset BEGIN
         SELECT RAISE(ABORT, 'Record identity is immutable'); END""")
       db.execute("PRAGMA user_version = 1")
+  if version < 2:
+    db.transaction:
+      db.execute("""CREATE TABLE analysis_reports (
+        id TEXT PRIMARY KEY NOT NULL,
+        dataset TEXT NOT NULL,
+        node TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('keywords','ai')),
+        created_at TEXT NOT NULL,
+        report TEXT NOT NULL CHECK(json_valid(report) AND json_type(report)='object'),
+        FOREIGN KEY(dataset,node) REFERENCES nodes(dataset,oid) ON DELETE CASCADE)""")
+      db.execute("CREATE INDEX analysis_reports_node ON analysis_reports(dataset,node,created_at DESC)")
+      db.execute("PRAGMA user_version = 2")
+  if version < 3:
+    db.transaction:
+      db.execute("""CREATE TABLE investigation_shares (
+        token TEXT PRIMARY KEY NOT NULL,
+        dataset TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        snapshot TEXT NOT NULL CHECK(json_valid(snapshot) AND json_type(snapshot)='object'))""")
+      db.execute("CREATE INDEX investigation_shares_dataset ON investigation_shares(dataset,created_at DESC)")
+      db.execute("PRAGMA user_version = 3")

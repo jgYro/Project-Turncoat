@@ -59,9 +59,22 @@ proc prepareMessages*(store: GraphStore; body: JsonNode; attached: JsonNode = ni
         "\n\nUser question:\n" & content
     result.add(%*{"role": message["role"].getStr, "content": content})
 
-proc resolveContext*(documents: DocumentClient; store: GraphStore; reference: JsonNode): Future[JsonNode] {.async.} =
+proc resolveContext*(documents: DocumentClient; store: GraphStore; reference: JsonNode): Future[JsonNode] {.async, gcsafe.} =
   if reference == nil or reference.kind == JNull: return newJNull()
   if reference.kind != JObject: raise newException(ValueError, "Context must be an object.")
+  if not reference.hasKey("source"):
+    let node = store.contextRecord(reference)
+    let properties = node{"properties"}
+    if node{"label"}.getStr in ["Paper", "Patent"] and properties{"providerRecord"} != nil and
+        properties{"providerRecord"}.kind == JObject:
+      let source = if node["label"].getStr == "Paper": "arxiv" else: "patents"
+      let id = properties{if source == "arxiv": "arxivId" else: "publicationNumber"}.getStr
+      if id.len > 0:
+        let document = copy(reference)
+        document["source"] = %source
+        document["id"] = %id
+        return await documents.resolveContext(store, document)
+    return node
   if reference.hasKey("source"):
     if reference{"source"}.kind != JString or reference{"id"} == nil or reference{"id"}.kind != JString:
       raise newException(ValueError, "Document context requires source and id strings.")
@@ -78,6 +91,9 @@ proc resolveContext*(documents: DocumentClient; store: GraphStore; reference: Js
 proc chat*(client: LlmClient; documents: DocumentClient; store: GraphStore; body: JsonNode): Future[JsonNode] {.async.} =
   # Validate messages before any document retrieval.
   discard store.prepareMessages(body, newJNull())
-  let record = await documents.resolveContext(store, body{"context"})
+  var reference = if body{"context"} == nil: newJNull() else: copy(body["context"])
+  if reference.kind == JObject and not reference.hasKey("includePdf"):
+    reference["includePdf"] = %true
+  let record = await documents.resolveContext(store, reference)
   let messages = store.prepareMessages(body, record)
   return await client.complete(messages)

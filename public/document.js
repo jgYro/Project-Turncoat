@@ -5,7 +5,7 @@
   if(params.has('node')){reference.node=params.get('node');reference.dataset=params.get('dataset');}
   const token=document.querySelector('meta[name="turncoat-token"]').content;
   const tree=new TurncoatJsonTree(el('document-tree'));
-  let record=null,pdfLoaded=false,textLoaded=false;
+  let record=null,pdfLoaded=false,pdfContext=null;
   function status(text,error=false){el('document-status').textContent=text;el('document-status').classList.toggle('error',error);}
   el('document-analysis').addEventListener('click',()=>{
     if(!record||el('document-analysis').disabled)return;
@@ -40,11 +40,7 @@
     const next=event.key==='Home'?0:event.key==='End'?2:(current+(event.key==='ArrowRight'?1:2))%3;
     el('tab-'+tabs[next]).focus();show(tabs[next]);
   });
-  el('load-pdf-text').addEventListener('click',async()=>{
-    if(textLoaded)return;el('load-pdf-text').disabled=true;status('Extracting text from the source PDF…');
-    try{const data=await request('/api/documents/text');el('document-text').textContent=data.text;el('text-scope').textContent=data.scope;textLoaded=true;el('load-pdf-text').textContent='Text loaded';status('Extracted text is ready. Select Include extracted PDF text in chat to use it.');}
-    catch(error){status(error.message,true);el('load-pdf-text').disabled=false;}
-  });
+  el('load-pdf-text').addEventListener('click',()=>pdfContext?.prepare(true));
   request('/api/documents/record').then(data=>{
     record=data;el('document-title').textContent=data.title||data.id;el('document-byline').textContent=[data.id,...(data.authors||[])].join(' · ');
     el('document-abstract').textContent=data.abstract||'No abstract was provided by the source.';tree.update(data,'record');
@@ -53,5 +49,15 @@
     // Server-provided links are restricted to supported sources; still validate protocols in the browser.
     for(const [id,url] of [['document-source',data.sourceUrl],['pdf-original',data.pdfUrl]]){try{const u=new URL(url);if(u.protocol==='https:'){el(id).href=u.href;el(id).hidden=false;}}catch{}}
     status(data.recordScope||'Source record loaded.');show(params.get('view')||'record');
+    if(data.pdfUrl){
+      pdfContext=new TurncoatPdfContext(reference,state=>{
+        el('text-scope').textContent=state.description;
+        el('load-pdf-text').disabled=state.state!=='error';
+        el('load-pdf-text').textContent=state.state==='ready'?'PDF context ready':state.state==='error'?'Retry PDF context':'Preparing PDF context…';
+        if(state.data)el('document-text').textContent=state.data.text;
+        status(state.description,state.state==='error');
+      });
+      pdfContext.prepare();
+    }else{el('load-pdf-text').disabled=true;el('text-scope').textContent='No PDF is listed for this record. Chat can use its metadata.';}
   }).catch(error=>{el('document-title').textContent='Document unavailable';status(error.message,true);});
 })();

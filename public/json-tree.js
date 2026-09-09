@@ -41,6 +41,7 @@
       const signature=JSON.stringify(value);if(signature===this.signature && identity===this.identity)return;
       const same=identity===this.identity, opened=new Set();
       if(same)this.tree.querySelectorAll('details[open]').forEach(e=>opened.add(e.dataset.path));
+      if(!same){this.raw.hidden=true;this.tree.hidden=false;this.rawToggle.setAttribute('aria-pressed','false');}
       this.identity=identity;this.signature=signature;this.value=value;this.note.textContent='';
       this.raw.textContent=JSON.stringify(value,null,2);this.tree.replaceChildren();
       if(value==null){this.tree.append(make('p','json-empty','Select a record to inspect its source fields.'));return;}
@@ -62,7 +63,8 @@
           };
           let loaded=false;const load=()=>{if(!loaded){loaded=true;fill();}};
           row.addEventListener('toggle',()=>{if(row.open)load();});
-          if((same && opened.has(path)) || (!same && depth<2) || (this.signature===signature && !same && depth===0)){row.open=true;load();}
+          // New records start collapsed; updates preserve branches the user opened.
+          if(same && opened.has(path)){row.open=true;load();}
         } else {
           const type=v===null?'null':typeof v;
           const text=type==='string'?v:JSON.stringify(v);

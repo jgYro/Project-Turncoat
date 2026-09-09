@@ -8,6 +8,8 @@ const paperFixture = staticRead("fixtures/results.xml")
 const patentFixture = staticRead("fixtures/patent.html")
 var received {.threadvar.}: JsonNode
 var calls = 0
+var pdfCalls = 0
+var pdfFailure = false
 
 proc handler(req: Request) {.async, gcsafe.} =
   inc calls
@@ -28,7 +30,11 @@ proc handler(req: Request) {.async, gcsafe.} =
       else: await req.respond(Http200, """{"model":"granite4.1:8b","choices":[{"message":{"role":"assistant","content":"Original: 杨超. Translation is separate. <script>not executable</script>"},"finish_reason":"stop"}],"usage":{"total_tokens":42}}""")
     of "/arxiv": await req.respond(Http200, paperFixture)
     of "/patent/US1234567B1/en": await req.respond(Http200, patentFixture)
-    of "/fixture.pdf": await req.respond(Http200, pdf, newHttpHeaders({"Content-Type":"application/pdf"}))
+    of "/fixture.pdf":
+      inc pdfCalls
+      await sleepAsync(30)
+      if pdfFailure: await req.respond(Http503, "Synthetic PDF unavailable")
+      else: await req.respond(Http200, pdf, newHttpHeaders({"Content-Type":"application/pdf"}))
     else: await req.respond(Http404, "No fixture")
   except IOError, OSError: discard # Timed-out clients close their sockets.
 
@@ -85,14 +91,48 @@ proc runTransportChecks() {.async.} =
     check record["authors"][0].getStr == "Renée Example"
     let paper = await docs.metadata("arxiv", "1706.03762")
     check paper["id"].getStr == "1706.03762v7"
-    let path = await docs.pdfFile("patents", "US1234567B1")
-    check readFile(path) == pdf
     if findExe("pdftotext").len > 0:
-      let text = await docs.pdfText("patents", "US1234567B1")
+      let pdfBefore = pdfCalls
+      let first = docs.pdfText("patents", "US1234567B1")
+      let duplicate = docs.pdfText("patents", "US1234567B1")
+      let other = docs.pdfText("arxiv", "1706.03762")
+      let viewer = docs.pdfFile("patents", "US1234567B1")
+      let text = await first
+      check (await duplicate) == text
+      check (await other)["text"] == text["text"]
+      check readFile(await viewer) == pdf
+      check pdfCalls == pdfBefore + 2 # Two documents, despite four concurrent callers.
       check "Synthetic patent reader fixture" in text["text"].getStr
-      discard await client.chat(docs, store, %*{"messages":[{"role":"user","content":"Summarize this PDF."}],"context":{"source":"patents","id":"US1234567B1","includePdf":true}})
+      discard await client.chat(docs, store, %*{"messages":[{"role":"user","content":"Summarize this PDF."}],"context":{"source":"patents","id":"US1234567B1"}})
       check "Synthetic patent reader fixture" in received["messages"][1]["content"].getStr
       check "pageLimit" in received["messages"][1]["content"].getStr
+      discard await client.chat(docs, store, %*{"messages":[{"role":"user","content":"Use metadata only."}],"context":{"source":"patents","id":"US1234567B1","includePdf":false}})
+      check "Synthetic patent reader fixture" notin received["messages"][1]["content"].getStr
+      store.ensureDataset("saved")
+      store.insertNode("saved",NodeRecord(oid:"saved:patent",label:"Patent",properties: %*{
+        "publicationNumber":"US1234567B1","sourceUrl":"https://patents.google.com/patent/US1234567B1/en",
+        "providerRecord":record["providerRecord"]}))
+      discard await client.chat(docs,store,%*{"messages":[{"role":"user","content":"Read the saved patent."}],"context":{"dataset":"saved","node":"saved:patent"}})
+      check "Synthetic patent reader fixture" in received["messages"][1]["content"].getStr
+      let retryDocs = newDocumentClient(newArxivClient(origin & "/arxiv",intervalMs=0),newPatentsClient(origin,intervalMs=0),pdfOrigin=origin)
+      try:
+        discard await retryDocs.metadata("patents","US1234567B1")
+        pdfFailure = true
+        let beforeFailure = pdfCalls
+        let failed = retryDocs.pdfText("patents","US1234567B1")
+        let alsoFailed = retryDocs.pdfText("patents","US1234567B1")
+        for pending in [failed,alsoFailed]:
+          try:
+            discard await pending
+            check false
+          except ApiError: discard
+        check pdfCalls == beforeFailure + 1
+        pdfFailure = false
+        check (await retryDocs.pdfText("patents","US1234567B1"))["text"] == text["text"]
+        check pdfCalls == beforeFailure + 2
+      finally:
+        pdfFailure = false
+        retryDocs.close()
     await sleepAsync(150)
   finally:
     docs.close(); store.close(); server.close()

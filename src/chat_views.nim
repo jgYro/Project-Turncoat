@@ -6,7 +6,9 @@ proc workspaceHead(token, script: string): TagRef =
     tMeta(name = "turncoat-token", content = attr(token))
     tLink(rel = "stylesheet", href = "/assets/json-tree.css")
     tLink(rel = "stylesheet", href = "/assets/chat.css")
+    tLink(rel = "stylesheet", href = "/assets/markdown.css")
     tScript(src = "/assets/json-tree.js", "defer" = "")
+    tScript(src = "/assets/pdf-context.js", "defer" = "")
     if script == "/assets/chat.js":
       tScript(src = "/assets/markdown-it.min.js", "defer" = "")
       tScript(src = "/assets/chat-markdown.js", "defer" = "")
@@ -38,6 +40,7 @@ proc renderChatPage*(token: string): TagRef =
             tInput(id = "include-pdf", "type" = "checkbox")
             " Include extracted PDF text"
           tP(id = "pdf-context-status", class = "muted", role = "status")
+          tButton(id = "retry-pdf-context", "type" = "button", hidden = ""): "Retry PDF context"
           tDiv(id = "context-tree")
       tSection(class = "conversation", "aria-label" = "LLM chat"):
         tHeader(class = "conversation-header"):
@@ -100,8 +103,8 @@ proc renderDocumentPage*(token: string): TagRef =
       tSection(id = "view-text", role = "tabpanel", "aria-labelledby" = "tab-text", hidden = ""):
         tDiv(class = "section-heading"):
           tH2: "Text available to chat"
-          tButton(id = "load-pdf-text", "type" = "button"): "Extract PDF text"
-        tP(id = "text-scope", class = "muted"): "Extracts up to the first 40 pages and 32000 UTF-8 bytes. Scanned pages and figures require OCR or a vision model."
+          tButton(id = "load-pdf-text", "type" = "button", disabled = ""): "Preparing PDF context…"
+        tP(id = "text-scope", class = "muted"): "Reads up to the first 40 pages and 32000 UTF-8 bytes. Docling OCR handles scanned pages when available; figures are not interpreted."
         tPre(id = "document-text", class = "document-text")
     tNoscript: "Enable JavaScript to use the document reader."
   pageDocument("Document", "Read a patent or paper and ask questions without leaving Project Turncoat.", content, workspaceHead(token, "/assets/document.js"))
@@ -124,8 +127,8 @@ proc renderChatGuide*(): TagRef =
       tOl:
         tLi: "Open a patent or paper. Its record, PDF, and extracted text stay inside the app."
         tLi: "Choose Ask about this document, or Ask in chat on a graph node. Inspect the attached JSON tree."
-        tLi: "For documents, select Include extracted PDF text to make that text available to the model. Send your question."
-      tP: "Extraction uses Poppler's pdftotext (brew install poppler on macOS). It reads up to 40 pages and 32000 UTF-8 bytes. It does not OCR scanned pages or interpret figures. Chat answers do not modify source data or launch searches."
+        tLi: "Document PDF context prepares automatically and is included by default. Send your question when ready, or choose metadata only before the first message."
+      tP: "Extraction uses embedded PDF text, with local Docling OCR for scanned pages. It reads up to 40 pages and 32000 UTF-8 bytes. OCR may misread text; figures are not interpreted. Chat answers do not modify source data or launch searches."
       tH2: "History and request limits"
       tP: "Conversations are saved in this browser tab's session storage. New chat clears them. Each request allows up to 24 alternating messages, 16000 bytes per message, 64000 bytes of conversation, and 48000 bytes of attached context. The default output limit is 2048 tokens, timeout 120 seconds, and concurrency two."
       tP:

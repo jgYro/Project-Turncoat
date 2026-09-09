@@ -4,6 +4,7 @@ import std/[asyncdispatch, httpclient, httpcore, json, strutils, uri, tables,
 import checksums/sha1
 import arxiv, arxiv_client, patents, patents_client
 import bounded_http
+import docling_extract
 import storage/sqlite
 
 const
@@ -14,14 +15,17 @@ const
 type
   DocumentEntry = ref object
     record: JsonNode
-    pdfPath, text: string
+    pdfPath, text, extractionMethod: string
     textLoaded: bool
+    pdfPending: Future[string]
+    textPending: Future[JsonNode]
   DocumentClient* = ref object
     arxiv: ArxivClient
     patents: PatentsClient
     entries: OrderedTable[string, DocumentEntry]
     directory: string
     active: bool
+    waiters: seq[Future[void]]
     nextPdf: MonoTime
     pdfOrigin: string # Explicit loopback fixture seam; never accepted from a request.
 
@@ -177,12 +181,42 @@ proc loadPdf(client: DocumentClient; entry: DocumentEntry): Future[string] {.asy
     http.close()
     client.nextPdf = getMonoTime() + initDuration(seconds = 3)
 
+proc acquirePdf(client: DocumentClient): Future[void] {.async.} =
+  # A small FIFO queue lets independent analysis tabs prepare context together.
+  if not client.active:
+    client.active = true
+    return
+  if client.waiters.len >= 8: raise apiError("The PDF preparation queue is full. Retry shortly.", 429)
+  let waiter = newFuture[void]("documents.acquirePdf")
+  client.waiters.add(waiter)
+  if not await withTimeout(waiter, 360_000):
+    for i, queued in client.waiters:
+      if queued == waiter:
+        client.waiters.delete(i)
+        break
+    raise apiError("Timed out waiting for PDF preparation. Retry when other documents finish.", 504)
+
+proc releasePdf(client: DocumentClient) =
+  if client.waiters.len == 0: client.active = false
+  else:
+    let next = client.waiters[0]
+    client.waiters.delete(0)
+    next.complete()
+
+proc preparePdfFile(client: DocumentClient; entry: DocumentEntry): Future[string] {.async.} =
+  await client.acquirePdf()
+  try: return await client.loadPdf(entry)
+  finally: client.releasePdf()
+
 proc pdfFile*(client: DocumentClient; source, id: string): Future[string] {.async.} =
   discard await client.metadata(source, id)
-  if client.active: raise apiError("A PDF is loading. Try again in a moment.", 429)
-  client.active = true
-  try: return await client.loadPdf(client.entries[source & ":" & documentId(source, id)])
-  finally: client.active = false
+  let entry = client.entries[source & ":" & documentId(source, id)]
+  if entry.pdfPath.len > 0 and fileExists(entry.pdfPath): return entry.pdfPath
+  if entry.pdfPending == nil: entry.pdfPending = client.preparePdfFile(entry)
+  let pending = entry.pdfPending
+  try: return await pending
+  finally:
+    if entry.pdfPending == pending: entry.pdfPending = nil
 
 proc cachedPdfFile*(client: DocumentClient; source, id: string): string =
   let key = source & ":" & documentId(source, id)
@@ -217,16 +251,38 @@ proc extractPdfText*(path: string; limit = MaxPdfTextBytes): Future[string] {.as
     process.close()
     if fileExists(output): removeFile(output)
 
+proc preparePdfText(client: DocumentClient; entry: DocumentEntry): Future[JsonNode] {.async.} =
+  if not entry.textLoaded:
+    await client.acquirePdf()
+    try:
+      let path = await client.loadPdf(entry)
+      let engine = getEnv("PDF_TEXT_ENGINE","auto")
+      if engine notin ["auto","docling","poppler"]: raise apiError("PDF_TEXT_ENGINE must be auto, docling, or poppler.",503)
+      if engine=="docling":
+        entry.text = await extractWithDocling(path)
+        entry.extractionMethod = "Docling OCR"
+      else:
+        try:
+          entry.text = await extractPdfText(path)
+          entry.extractionMethod = "Poppler embedded text"
+        except ApiError as error:
+          if engine!="auto" or error.status notin [422,503]: raise
+          entry.text = await extractWithDocling(path)
+          entry.extractionMethod = "Docling OCR"
+      entry.textLoaded = true
+    finally: client.releasePdf()
+  return %*{"text": entry.text, "pageLimit": PdfPageLimit, "byteLimit": MaxPdfTextBytes,
+    "method":entry.extractionMethod,
+    "scope": entry.extractionMethod & ": up to the first 40 pages, limited to 32000 UTF-8 bytes. Later content may be omitted. " &
+      (if entry.extractionMethod=="Docling OCR":"OCR can misread text; verify quotations against the PDF. No picture interpretation." else:"Embedded text only; no picture interpretation.")}
+
 proc pdfText*(client: DocumentClient; source, id: string): Future[JsonNode] {.async.} =
   discard await client.metadata(source, id)
   let entry = client.entries[source & ":" & documentId(source, id)]
-  if not entry.textLoaded:
-    if client.active: raise apiError("A PDF is loading. Try again in a moment.", 429)
-    client.active = true
-    try:
-      let path = await client.loadPdf(entry)
-      entry.text = await extractPdfText(path)
-      entry.textLoaded = true
-    finally: client.active = false
-  return %*{"text": entry.text, "pageLimit": PdfPageLimit, "byteLimit": MaxPdfTextBytes,
-    "scope": "Text from up to the first 40 pages, limited to 32000 UTF-8 bytes. This may omit later content; no OCR or image analysis."}
+  if entry.textPending == nil: entry.textPending = client.preparePdfText(entry)
+  let pending = entry.textPending
+  try: return await pending
+  except CatchableError:
+    # A failed preparation can be retried; simultaneous callers share its result.
+    if entry.textPending == pending: entry.textPending = nil
+    raise

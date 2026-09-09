@@ -62,6 +62,7 @@
     el('node-label').textContent = node?.label || '';
     propertiesTree.update(node?.properties || null, node?.id || '');
     el('chat-link').hidden = !node;
+    el('drilldown-node').hidden = !node || !['Patent','Paper','Name mention','Name search','Person','Author','Inventor'].includes(node.label);
     if(node)el('chat-link').href='/chat?'+new URLSearchParams({dataset:investigation||el('dataset').value,node:node.id});
     el('selected-title').textContent = node ? caption(node) : '';
     el('evidence-note').textContent = node?.label === 'Name mention'
@@ -163,7 +164,8 @@
       group.append('circle').attr('class','core').attr('r', d => d.label === 'Patent' ? 10 : 7);
       group.append('text').attr('x', 21).attr('y', 4); group.append('title');
       group.on('click', (_, node) => inspect(node)).on('dblclick', (event, node) => {event.preventDefault(); inspect(node); expand(node);})
-        .on('keydown', (event, node) => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); inspect(node);}})
+        .on('contextmenu', (event,node) => {inspect(node);window.TurncoatDrilldown?.contextMenu(event,node,investigation||el('dataset').value,event.currentTarget);})
+        .on('keydown', (event, node) => {if(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey){window.TurncoatDrilldown?.contextMenu(event,node,investigation||el('dataset').value,event.currentTarget);}else if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); inspect(node);}})
         .call(d3.drag().on('start', (event, node) => {
           followLayout = false; svg.interrupt();
           if (!paused && !event.active) simulation.alphaTarget(0.2).restart(); node.fx = node.x; node.fy = node.y;
@@ -263,6 +265,7 @@
   }
   function savePanels() {try {localStorage.setItem(panelKey,JSON.stringify(panels));} catch {}}
   function positionPanel(side) {
+    if (!workspace.clientWidth || !workspace.clientHeight) return;
     const panel = el(panelIds[side]), state = panels[side];
     if (state.mode !== 'floating' || state.hidden) return;
     const width = workspace.clientWidth, height = workspace.clientHeight;
@@ -342,6 +345,7 @@
     canvasSize = {width,height};
   }).observe(el('canvas'));
   function detachInvestigation() {
+    el('share-investigation').hidden=true;
     clearTimeout(pollTimer); investigation = null; job = null; busy = false;
     document.body.classList.remove('is-investigating'); el('stop-investigation').hidden = true;
     el('job-state').textContent = 'LOCAL GRAPH';
@@ -366,6 +370,7 @@
       const data = await request(`/api/investigations/${encodeURIComponent(id)}`);
       if (id !== investigation) return;
       job = data.job; busy = data.busy;
+      el('share-investigation').hidden=false;el('share-investigation').dataset.investigation=id;
       limits.maxNodes = Math.max(limits.maxNodes, job.limits.maxNodes);
       limits.maxEdges = Math.max(limits.maxEdges, job.limits.maxEdges);
       merge(data);
@@ -404,6 +409,8 @@
     try {await request(`/api/investigations/${encodeURIComponent(investigation)}/expand`, {node:selected.id, spelling:selected.label === 'Name mention' ? el('spelling').value : ''}); await pollInvestigation();}
     catch(error) {busy = false; updateExpansion(); status(error.message, true);}
   });
+  el('drilldown-node').addEventListener('click',()=>window.TurncoatDrilldown?.openNode(selected,investigation||el('dataset').value));
+  document.addEventListener('turncoat:workspace-view',event=>{if(event.detail.graph){if(!paused)simulation.alpha(.1).restart();else tick();}else simulation.stop();});
   window.addEventListener('pagehide', () => clearTimeout(pollTimer));
   el('stop-investigation').addEventListener('click', async () => {
     if (!investigation) return;

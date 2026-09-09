@@ -1,0 +1,23 @@
+.share-dialog { width:min(580px,calc(100vw - 32px)); max-height:85dvh; overflow:auto; padding:24px; color:var(--text); background:var(--panel); border:1px solid var(--primary-line); border-radius:8px; }
+.share-dialog::backdrop { background:#0009; backdrop-filter:blur(4px); }
+.share-dialog h2 { font:500 24px var(--sans); text-transform:none; letter-spacing:0; color:var(--text); }
+.share-dialog>button { margin:10px 8px 10px 0; }
+.share-dialog input[readonly] { display:block; width:100%; padding:10px; background:var(--bg); color:var(--cyan); border:1px solid var(--line); }
+.share-dialog .research-check { display:flex; gap:8px; align-items:center; font:13px var(--sans); }
+.share-link-row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; }
+.share-links { max-height:180px; overflow:auto; }
+.shared-view { margin:0; height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+.shared-heading { padding:16px 24px 4px; flex-shrink:0; max-height:25dvh; overflow:auto; }
+.shared-heading h1 { font:500 24px var(--sans); margin:0; overflow-wrap:anywhere; }
+.shared-heading #shared-status { font:11px/1.7 var(--mono); color:var(--cyan); }
+.shared-layout { display:grid; grid-template-columns:minmax(0,1fr) 370px; flex:1; min-height:0; overflow:hidden; }
+.shared-graph { display:flex; flex-direction:column; min-height:0; min-width:0; padding:0 20px 20px; }
+#shared-graph { flex:1; width:100%; min-height:0; border:1px solid var(--line); background:radial-gradient(ellipse,#11232a,var(--bg)); }
+.shared-inspector { min-width:0; padding:16px; overflow:auto; border-left:1px solid var(--line); background:var(--panel); }
+.shared-inspector h2 { overflow-wrap:anywhere; font:500 20px/1.4 var(--sans); }
+.shared-inspector input,.shared-inspector select { width:100%; margin:8px 0; padding:9px; background:var(--bg); border:1px solid var(--line); color:var(--text); }
+.shared-inspector .json-tree,.shared-inspector .json-raw { max-height:none; overflow:visible; }
+.shared-node { cursor:pointer; }.shared-node text { fill:var(--text); font:10px var(--mono); opacity:0; pointer-events:none; }.shared-node:hover text,.shared-node:focus text { opacity:1; }
+.shared-small .shared-node text { opacity:1; }
+.shared-inspector blockquote { margin:10px 0; padding-left:12px; border-left:2px solid var(--cyan); white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:700px){.shared-layout { display:flex; flex-direction:column; overflow:auto; }.shared-graph { flex:0 0 45dvh; min-height:250px; padding:0 12px 12px; }.shared-inspector { flex:0 0 400px; border:0; }.shared-heading { padding:14px; }.shared-view .local-indicator { display:block; }}

@@ -8,6 +8,10 @@ import storage/sqlite
 import api/service
 import llm/service as llmService
 import documents, chat_views
+import analysis/service as analysisService
+import settings_views
+import storage/shares
+import docling_extract
 
 const
   css = staticRead("../public/style.css")
@@ -26,11 +30,23 @@ const
   jsonTreeScript = staticRead("../public/json-tree.js")
   jsonTreeCss = staticRead("../public/json-tree.css")
   chatScript = staticRead("../public/chat.js")
+  pdfContextScript = staticRead("../public/pdf-context.js")
   markdownLibrary = staticRead("../public/vendor/markdown-it-15.0.1.min.js")
   chatMarkdown = staticRead("../public/chat-markdown.js")
+  markdownCss = staticRead("../public/markdown.css")
   chatCss = staticRead("../public/chat.css")
   documentScript = staticRead("../public/document.js")
   chatGuide = staticRead("../docs/llm-chat.md")
+  researchCss = staticRead("../public/research.css")
+  researchScript = staticRead("../public/research-ui.js")
+  drilldownScript = staticRead("../public/drilldowns.js")
+  settingsScript = staticRead("../public/settings.js")
+  drilldownGuide = staticRead("../docs/graph-drilldowns.md")
+  sharedPage = staticRead("../public/shared.html")
+  sharedScript = staticRead("../public/shared.js")
+  shareScript = staticRead("../public/share.js")
+  shareCss = staticRead("../public/share.css")
+  extractionGuide = staticRead("../docs/document-extraction.md")
 
 proc responseHeaders(contentType: string): HttpHeaders =
   newHttpHeaders({"Content-Type": contentType,
@@ -56,6 +72,73 @@ proc serveProject*(config: AppConfig) =
   var server = newServer(config.host, config.port)
   server.routes:
 
+    get "/settings":
+      let headers=responseHeaders("text/html; charset=utf-8")
+      headers["Cache-Control"]="no-store"
+      req.answer($renderSettingsPage(institutionToken),Http200,headers)
+    get "/assets/share.js":
+      req.answer(shareScript,Http200,responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/shared.js":
+      req.answer(sharedScript,Http200,responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/share.css":
+      req.answer(shareCss,Http200,responseHeaders("text/css; charset=utf-8"))
+    get "/shared/{token}":
+      let headers=responseHeaders("text/html; charset=utf-8")
+      headers["Cache-Control"]="no-store"
+      headers["Referrer-Policy"]="no-referrer"
+      headers["X-Robots-Tag"]="noindex, nofollow"
+      req.answer(sharedPage,Http200,headers)
+    get "/shared/{token}/data":
+      var data: JsonNode
+      try: data=store.loadShare(token)
+      except ApiError as error:
+        statusCode=error.status;data=errorResponse(error.status,error.publicMessage).body
+      for name,value in responseHeaders("application/json; charset=utf-8"): outHeaders[name]=value
+      outHeaders["Cache-Control"]="no-store"
+      outHeaders["Referrer-Policy"]="no-referrer"
+      outHeaders["X-Robots-Tag"]="noindex, nofollow"
+      return data
+    post "/api/shares/{action}":
+      var data: JsonNode
+      try:
+        if req.headers.getOrDefault("X-Turncoat-Token")!=institutionToken: raise apiError("Refresh the workspace before sharing.",403)
+        if req.body.len>2048: raise apiError("Sharing request is too large.",413)
+        let body=parseJson(req.body)
+        if body.kind!=JObject or body{"dataset"}==nil or body["dataset"].kind!=JString: raise newException(ValueError,"Choose an investigation.")
+        let dataset=body["dataset"].getStr
+        case action
+        of "create":
+          if body{"includeReports"}==nil or body["includeReports"].kind!=JBool: raise newException(ValueError,"Specify whether to include reports.")
+          data=store.createShare(dataset,body["includeReports"].getBool)
+        of "list": data = %*{"shares":store.listShares(dataset)}
+        of "revoke":
+          if body{"token"}==nil or body["token"].kind!=JString: raise newException(ValueError,"Choose a sharing link.")
+          store.revokeShare(dataset,body["token"].getStr);data = %*{"revoked":true}
+        else: raise apiError("Unknown sharing action.",404)
+      except ApiError as error:
+        statusCode=error.status;data=errorResponse(error.status,error.publicMessage).body
+      except ValueError as error:
+        statusCode=400;data=errorResponse(400,error.publicMessage).body
+      except CatchableError:
+        statusCode=500;data=errorResponse(500,"Could not update this sharing link.").body
+      for name,value in responseHeaders("application/json; charset=utf-8"): outHeaders[name]=value
+      outHeaders["Cache-Control"]="no-store"
+      return data
+    get "/api/documents/config":
+      req.answer($extractionConfig(),Http200,responseHeaders("application/json; charset=utf-8"))
+    get "/docs/document-extraction.md":
+      req.answer(extractionGuide,Http200,responseHeaders("text/plain; charset=utf-8"))
+    get "/assets/research.css":
+      req.answer(researchCss,Http200,responseHeaders("text/css; charset=utf-8"))
+    get "/assets/research-ui.js":
+      req.answer(researchScript,Http200,responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/drilldowns.js":
+      req.answer(drilldownScript,Http200,responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/settings.js":
+      req.answer(settingsScript,Http200,responseHeaders("text/javascript; charset=utf-8"))
+    get "/docs/graph-drilldowns.md":
+      req.answer(drilldownGuide,Http200,responseHeaders("text/plain; charset=utf-8"))
+
     get "/chat":
       let headers = responseHeaders("text/html; charset=utf-8")
       headers["Cache-Control"] = "no-store"
@@ -78,10 +161,14 @@ proc serveProject*(config: AppConfig) =
       req.answer(jsonTreeCss, Http200, responseHeaders("text/css; charset=utf-8"))
     get "/assets/chat.js":
       req.answer(chatScript, Http200, responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/pdf-context.js":
+      req.answer(pdfContextScript, Http200, responseHeaders("text/javascript; charset=utf-8"))
     get "/assets/markdown-it.min.js":
       req.answer(markdownLibrary, Http200, responseHeaders("text/javascript; charset=utf-8"))
     get "/assets/chat-markdown.js":
       req.answer(chatMarkdown, Http200, responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/markdown.css":
+      req.answer(markdownCss, Http200, responseHeaders("text/css; charset=utf-8"))
     get "/assets/chat.css":
       req.answer(chatCss, Http200, responseHeaders("text/css; charset=utf-8"))
     get "/assets/document.js":
@@ -89,6 +176,29 @@ proc serveProject*(config: AppConfig) =
 
     get "/api/llm/config":
       req.answer($llm.config.publicConfig(), Http200, responseHeaders("application/json; charset=utf-8"))
+
+    get "/api/drilldown/catalog":
+      let data = %*{"keywords":analysisService.keywordCatalog(), "presets":analysisService.reviewPresets(),
+        "promptVersion":analysisService.ReviewVersion,"instructions":analysisService.ReviewInstructions,
+        "example":analysisService.keywordExample()}
+      req.answer($data,Http200,responseHeaders("application/json; charset=utf-8"))
+
+    post "/api/drilldown/{action}":
+      var data: JsonNode
+      try:
+        if req.headers.getOrDefault("X-Turncoat-Token") != institutionToken:
+          raise apiError("Refresh the workspace before continuing.",403)
+        if req.body.len > 8192: raise apiError("Drill-down request is too large.",413)
+        data = await analysisService.drilldown(store,documentClient,llm,action,parseJson(req.body))
+      except ApiError as error:
+        statusCode=error.status; data=errorResponse(error.status,error.publicMessage).body
+      except ValueError as error:
+        statusCode=400; data=errorResponse(400,error.publicMessage).body
+      except CatchableError:
+        statusCode=500; data=errorResponse(500,"The drill-down request could not complete.").body
+      for name,value in responseHeaders("application/json; charset=utf-8"): outHeaders[name]=value
+      outHeaders["Cache-Control"]="no-store"
+      return data
 
     post "/api/llm/{action}":
       var data: JsonNode

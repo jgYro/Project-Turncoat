@@ -10,21 +10,32 @@
   <link rel="stylesheet" href="/assets/theme.css">
   <link rel="stylesheet" href="/assets/app.css">
   <link rel="stylesheet" href="/assets/json-tree.css">
+  <link rel="stylesheet" href="/assets/research.css">
+  <link rel="stylesheet" href="/assets/markdown.css">
+  <link rel="stylesheet" href="/assets/share.css">
   <script src="/assets/d3.v7.min.js" defer></script>
   <script src="/assets/json-tree.js" defer></script>
   <script src="/assets/graph.js" defer></script>
+  <script src="/assets/research-ui.js" defer></script>
+  <script src="/assets/markdown-it.min.js" defer></script>
+  <script src="/assets/chat-markdown.js" defer></script>
+  <script src="/assets/pdf-context.js" defer></script>
+  <script src="/assets/drilldowns.js" defer></script>
+  <script src="/assets/share.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#canvas">Skip to graph</a>
   <header class="site-header"><a class="brand" href="/" aria-label="Project Turncoat home"><span class="brand-mark" aria-hidden="true">✳</span><span><span class="brand-light">Project </span>Turncoat</span></a>
-    <nav aria-label="Main navigation"><a href="/">Papers</a><a href="/patents">Patents</a><a href="/institutions">Institutions</a><a class="active" href="/graph" aria-current="page">Graph</a><a href="/chat">Chat</a><a class="nav-guide" href="/#search-guide">Search guide ↗</a></nav>
+    <nav aria-label="Main navigation"><a href="/">Papers</a><a href="/patents">Patents</a><a href="/institutions">Institutions</a><a class="active" href="/graph" aria-current="page">Graph</a><a href="/chat">Chat</a><a href="/settings">Settings</a><a class="nav-guide" href="/#search-guide">Search guide ↗</a></nav>
     <span class="local-indicator">LOCAL WORKSPACE</span></header>
+  <div id="workspace-tabs" class="workspace-tabs" role="tablist" aria-label="Investigation workspace tabs"><button id="graph-tab" type="button" role="tab" aria-selected="true" aria-controls="graph-workspace">⌁ Graph</button></div>
+  <p id="drill-notice" role="status" hidden></p>
   <section class="mission-bar" aria-label="Investigation progress">
     <div><p class="eyebrow">LIVE DISCOVERY / 01</p><h1 id="mission-title">Follow the names. Inspect the evidence.</h1>
       <p id="mission-note">Open a patent’s Investigate link to search its inventors across Google Patents and arXiv.</p></div>
-    <div class="telemetry"><span id="job-state">STANDBY</span><span id="request-count">2 PROVIDERS · LOCAL STORAGE</span><button id="stop-investigation" hidden>Stop investigation</button></div>
+    <div class="telemetry"><span id="job-state">STANDBY</span><span id="request-count">2 PROVIDERS · LOCAL STORAGE</span><button id="share-investigation" hidden>Share investigation ↗</button><button id="stop-investigation" hidden>Stop investigation</button></div>
   </section>
-  <main id="graph-workspace">
+  <main id="graph-workspace" role="tabpanel" aria-labelledby="graph-tab">
     <aside id="search-panel" class="search-panel dock-panel" aria-labelledby="search-panel-title">
       <div class="panel-header"><h2 id="search-panel-title">Workspace</h2><div class="panel-actions"><button type="button" data-panel="left" data-panel-action="dock" aria-label="Undock workspace panel" title="Undock workspace panel">Undock</button><button type="button" data-panel="left" data-panel-action="hide" aria-label="Hide workspace panel" title="Hide workspace panel">×</button></div></div>
       <div class="panel-body">
@@ -56,6 +67,7 @@
       <div class="panel-body"><p id="selection-hint">Click a node to inspect its properties.</p>
       <h3 id="selected-title"></h3><p id="evidence-note"></p><a id="source-link" hidden target="_blank" rel="noopener noreferrer">Open source ↗</a>
       <a id="chat-link" class="node-chat-link" hidden>Ask in chat ↗</a>
+      <button id="drilldown-node" type="button" class="node-chat-link" hidden>Drill down →</button>
       <div id="name-spelling" hidden><label for="spelling">Search spelling</label><input id="spelling" maxlength="200" placeholder="Original or known Latin spelling"><p>Original text stays saved. Alternate spellings are recorded as user supplied.</p></div>
       <dl id="node-details" hidden><dt>ID</dt><dd id="node-id"></dd><dt>Label</dt><dd id="node-label"></dd></dl>
       <p id="expansion-status"></p><details open><summary>Source properties</summary><div id="properties"></div></details>
@@ -63,6 +75,8 @@
       </div>
     </aside>
   </main>
+  <main id="drill-workspace" hidden aria-label="Drill-down workspace"></main>
+  <div id="node-context-menu" class="node-context-menu" role="menu" aria-label="Node actions" hidden><button id="context-drilldown" type="button" role="menuitem">Drill down</button></div>
   <noscript><p class="noscript">Enable JavaScript to explore the graph. Papers, patents, and institutions remain accessible through the navigation.</p></noscript>
 </body>
 </html>

@@ -32,9 +32,34 @@ PDF text** to include a bounded text extract.
 AI replies render Markdown, and a waiting card shows request stages and elapsed
 time while the local model responds. User and AI messages have distinct styles.
 Poppler's `pdftotext` must be on PATH for extraction (`brew install poppler` on macOS).
-No OCR or image interpretation is performed. Chat replies stay separate from
+Scanned PDFs fall back to local Docling OCR; no picture interpretation is performed.
+See [Docling setup and limits](docs/document-extraction.md). Chat replies stay separate from
 graph evidence and do not start searches. See the [chat/API guide](docs/llm-chat.md)
 or `/chat/guide` in the app for configuration and limits.
+
+Right-click a graph author, paper, or patent and choose **Drill down** to open a
+workspace tab. Author tables show saved source-listed records and name-search
+candidates; **Search both providers** explicitly requests further name searches.
+Document tabs offer deterministic English/Chinese keyword tags, a PDF view, and
+four AI review queries with separate direct and potential indirect findings.
+Scans and reviews save their evidence snapshots in SQLite and can be downloaded
+as JSON. Graph JSONL exports do not include these reports.
+
+**Settings** (`/settings`) displays the current keyword rules, literal aliases,
+AI queries and review instructions, and saved provider-search history by dataset.
+Viewing settings makes no provider or model requests. JSON trees start collapsed.
+See [drill-down behavior and evidence limits](docs/graph-drilldowns.md).
+
+The 45-rule vocabulary includes EMI, radar/reflection, ballistics, AI/LLMs,
+red teaming and vulnerabilities. Broad terms such as model, target and adversary
+have their own context section. Settings includes a real arXiv keyword example.
+
+**Share investigation** creates and copies a read-only snapshot link, optionally
+including the latest keyword scan and AI review per document. The recipient can
+inspect nodes, view included reports, and download snapshot JSON. Links can be
+revoked; later edits do not change an existing snapshot. Recipients need access
+to the same server—a localhost URL is not an internet sharing service.
+See [sharing behavior and deployment scope](docs/investigation-sharing.md).
 
 ## Quick start
 
@@ -102,6 +127,11 @@ record has one owning dataset in schema v1. OIDs are globally unique across
 both record types and all datasets; imports cannot silently move an OID.
 Composite foreign keys ensure both endpoints belong to the edge's dataset.
 Deleting a node cascades to its edges.
+
+Schema v2 adds `analysis_reports`, scoped to the source dataset and node. Schema v3
+adds immutable `investigation_shares` snapshots. Existing
+v1 databases migrate automatically; source records stay unchanged. Keep the SQLite
+database to retain reports and their evidence, independently of browser tab state.
 
 This initial ownership model avoids ambiguous updates to shared records.
 A future combined view can union source selections; shared dataset membership
