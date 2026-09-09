@@ -7,6 +7,13 @@ const
   paperFixture = staticRead("fixtures/results.xml")
 
 proc handler(req: Request) {.async, gcsafe.} =
+  if req.url.path == "/v1/models":
+    await req.respond(Http200, """{"data":[{"id":"granite4.1:8b"}]}""")
+    return
+  if req.url.path == "/v1/chat/completions":
+    await sleepAsync(200)
+    await req.respond(Http200, $(%*{"model":"granite4.1:8b", "choices":[{"message":{"role":"assistant", "content":"Synthetic model reply: source names stay unchanged — 杨超.\nThis fixture is not live model analysis."}, "finish_reason":"stop"}], "usage":{"total_tokens":123}}))
+    return
   if req.url.path == "/arxiv":
     await req.respond(Http200, paperFixture, newHttpHeaders({"Content-Type": "application/atom+xml"}))
     return

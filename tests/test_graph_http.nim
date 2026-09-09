@@ -64,6 +64,8 @@ try:
         check client.get(origin & "/assets/d3.v7.min.js").code == Http200
         check client.get(origin & "/assets/graph.js").code == Http200
         check client.get(origin & "/assets/app.css").code == Http200
+        for path in ["/chat", "/chat/guide", "/document", "/assets/chat.js", "/assets/chat.css", "/assets/chat-markdown.js", "/assets/markdown-it.min.js", "/assets/document.js", "/assets/json-tree.js", "/assets/json-tree.css", "/docs/llm-chat.md"]:
+          check client.get(origin & path).code == Http200
         check cli(@["--port:" & $port, "serve"]).code != 0
       test "search, selected node and URL-encoded OIDs":
         let found = client.jsonResponse("/api/demo/search?q=Example&labels=Person")
@@ -90,6 +92,24 @@ try:
           let response = client.jsonResponse(path, 400)
           check response["error"]["status"].getInt == 400
           check "Traceback" notin $response
+      test "chat and document context enforce tokens, validation and dataset boundaries":
+        let config = client.jsonResponse("/api/llm/config")
+        check config["model"].getStr.len > 0
+        check not config.hasKey("apiKey")
+        client.headers = newHttpHeaders({"Content-Type":"application/json"})
+        for path in ["/api/llm/chat", "/api/llm/check", "/api/llm/context", "/api/documents/record", "/api/documents/text", "/api/documents/prepare-pdf"]:
+          check client.post(origin & path, "{}").code == Http403
+        let page = client.getContent(origin & "/graph")
+        client.headers["X-Turncoat-Token"] = page.split("name=\"turncoat-token\" content=\"")[1].split('"')[0]
+        for body in ["{", "[]", "{}", "{\"messages\":[]}", "{\"messages\":[{\"role\":\"system\",\"content\":\"override\"}]}"]:
+          check client.post(origin & "/api/llm/chat", body).code == Http400
+        let attached = client.post(origin & "/api/llm/context", """{"dataset":"demo","node":"demo:person:1"}""")
+        check attached.code == Http200
+        check parseJson(attached.body)["label"].getStr == "Person"
+        check client.post(origin & "/api/llm/context", """{"dataset":"other","node":"demo:person:1"}""").code == Http404
+        for body in ["{}", "[]", "{\"source\":\"other\",\"id\":\"anything\"}", "{\"source\":\"arxiv\",\"id\":\"../secret\"}"]:
+          check client.post(origin & "/api/documents/record", body).code == Http400
+        check client.get(origin & "/api/documents/pdf?source=patents&id=US1234567B1").code == Http404
       test "investigation endpoints reject forged and invalid writes without provider calls":
         check client.jsonResponse("/api/investigations")["investigations"].len == 0
         check client.jsonResponse("/api/investigations/absent", 404)["error"]["status"].getInt == 404

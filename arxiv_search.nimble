@@ -27,6 +27,10 @@ task test, "Test research queries, provider parsing, rendering, and API behavior
   runFacultyTests()
   exec "nim c -r --path:src --out:bin/test_graph tests/test_graph.nim"
   exec "nim c -r --path:src --out:bin/test_investigations tests/test_investigations.nim"
+  exec "nim c -r --path:src --out:bin/test_llm tests/test_llm.nim"
+
+task testLlm, "Test OpenAI-compatible chat and document extraction with local fixtures":
+  exec "nim c -r --path:src --out:bin/test_llm tests/test_llm.nim"
 
 task testFaculty, "Run faculty fixture and loopback HTTP tests (no university traffic)":
   runFacultyTests()

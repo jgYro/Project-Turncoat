@@ -110,9 +110,10 @@ code { color:var(--cyan); font:11px/1.8 var(--mono); overflow-wrap:anywhere; }
 .tags { display:flex; flex-wrap:wrap; gap:6px; }
 .tag { color:#a8c8cc; background:#172b32; border:1px solid #29434b; border-radius:3px; padding:4px 7px; font:10px/1.4 var(--mono); }
 .paper-links { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-left:auto; color:var(--cyan); font-size:12px; }
-.pdf-link,.investigate-link { padding:8px 12px; border:1px solid var(--control-line); border-radius:5px; white-space:nowrap; }
-.paper-links .investigate-link { background:var(--primary-bg); color:var(--primary-text); border-color:var(--primary-line); }
-.paper-links .investigate-link:hover,.pdf-link:hover { background:var(--hover); border-color:var(--cyan); color:#fff; }
+.pdf-link,.investigate-link,.analysis-link { padding:8px 12px; border:1px solid var(--control-line); border-radius:5px; white-space:nowrap; }
+.paper-links .analysis-link { font:inherit; }
+.paper-links .investigate-link,.paper-links .analysis-link { background:var(--primary-bg); color:var(--primary-text); border-color:var(--primary-line); }
+.paper-links .investigate-link:hover,.paper-links .analysis-link:hover,.pdf-link:hover { background:var(--hover); border-color:var(--cyan); color:#fff; }
 .pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:20px 0; font:11px var(--mono); color:var(--muted); }
 .page-button { display:inline-block; padding:9px 13px; border:1px solid var(--control-line); border-radius:5px; background:var(--panel); color:var(--cyan); }
 a.page-button:hover { background:var(--hover); border-color:var(--cyan); }
@@ -208,7 +209,7 @@ a.page-button:hover { background:var(--hover); border-color:var(--cyan); }
   .sort-controls { width:100%; }
   .paper-number { display:none; }
   .paper-links { gap:12px; font-size:11px; justify-content:flex-end; }
-  .pdf-link,.investigate-link { padding:8px 10px; }
+  .pdf-link,.investigate-link,.analysis-link { padding:8px 10px; }
   .paper-bottom { align-items:flex-start; flex-direction:column; }
   .pagination { font-size:10px; }
   .page-button { padding:9px; }

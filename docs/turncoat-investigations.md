@@ -41,6 +41,24 @@ available and marks the operation partial. Stop prevents further work and
 discards results of already in-flight calls; those calls may take until their
 timeout to release the worker. Closing the browser leaves the worker running.
 
+## Graph workspace controls
+
+The graph canvas fits the visible window. Side panels scroll independently, so
+long source properties and activity logs do not push the graph or radar circle
+below the viewport. **Center** fits all loaded nodes and follows the layout as
+it settles. Panning, zooming, or dragging a node turns off automatic fitting;
+Center enables it again. Resizing a panel preserves a manually chosen camera
+position and zoom.
+
+Use **Workspace** and **Inspector** above the canvas to hide or show each panel.
+**Undock** turns a panel into a floating window: drag its header to move it,
+drag its lower-right corner to resize, and select **Dock** to return it to the
+edge. A focused floating header also supports arrow keys (Shift moves farther).
+Escape or the close button hides the panel and returns focus to its toggle.
+Visibility, docking mode, and floating position are remembered in this browser.
+On smaller screens the panels start closed and open individually as drawers.
+These controls preserve the selected node, graph contents, and investigation.
+
 ## Names and evidence
 
 Names are source text, not person identifiers. No fuzzy matching, identity
@@ -112,6 +130,11 @@ tests and investigation tests. `nimble testInvestigations` runs the new loopback
 HTTP/SQLite tests alone; `nimble testGraphHttp` builds `turncoat` and tests the
 combined CLI and server, including write-token and request validation.
 Normal tests never contact Google, arXiv or university hosts.
+
+`tests/browser/test_graph_layout.js` is a Playwright page function for the app
+on port 5010. Synthetic API responses exercise viewport fitting, independent
+panel scrolling, hide/show persistence, floating drag/resize, keyboard controls,
+redocking, manual camera preservation, and mobile drawers.
 
 Browser verification uses the local fixture provider on 5011, a separate app on
 5010 and a temporary database. It exercises the patent button, incremental

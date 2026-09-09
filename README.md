@@ -19,6 +19,23 @@ Saved graphs and JSONL import/export work offline. New investigations contact
 only the two configured providers. The faculty library is not invoked.
 See [investigation behavior and data model](docs/turncoat-investigations.md).
 
+**Chat** connects to an OpenAI-compatible inference server, defaulting to local
+Ollama with `granite4.1:8b` at `http://127.0.0.1:11434/v1`. Use **Ask in chat** on
+a graph node to attach its source record. The JSON inspector provides expandable
+objects/arrays, colored value types, original Unicode text, and Copy/Raw JSON.
+
+Paper and patent links open an in-app **document reader** with Record, PDF, and
+Extracted text views. **AI Analysis** on paper/patent search results or in the
+reader automatically reviews metadata and available PDF text in a separate Chat.
+**Ask about this document** carries metadata into Chat; select **Include extracted
+PDF text** to include a bounded text extract.
+AI replies render Markdown, and a waiting card shows request stages and elapsed
+time while the local model responds. User and AI messages have distinct styles.
+Poppler's `pdftotext` must be on PATH for extraction (`brew install poppler` on macOS).
+No OCR or image interpretation is performed. Chat replies stay separate from
+graph evidence and do not start searches. See the [chat/API guide](docs/llm-chat.md)
+or `/chat/guide` in the app for configuration and limits.
+
 ## Quick start
 
 Prerequisites: **Nim 2.2.x** (tested with 2.2.10), Nimble, a C compiler, Git,

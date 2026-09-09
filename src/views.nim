@@ -31,8 +31,8 @@ proc displayDate(value: string): string =
   if value.len >= 10: value[0..9] else: value
 
 proc paperCard(paper: Paper; index: int): TagRef =
-  let url = "https://arxiv.org/abs/" & paper.id
-  let pdf = "https://arxiv.org/pdf/" & paper.id
+  let url = "/document?source=arxiv&id=" & encodeUrl(paper.id)
+  let pdf = url & "&view=pdf"
   return buildHtml:
     tArticle(class = "paper"):
       tDiv(class = "paper-number"): "{index:02}"
@@ -41,7 +41,7 @@ proc paperCard(paper: Paper; index: int): TagRef =
           tSpan(class = "primary-category"): {paper.primaryCategory}
           tSpan: "Submitted {displayDate(paper.published)}"
         tH3:
-          tA(href = attr(url), target = "_blank", rel = "noopener noreferrer"):
+          tA(href = attr(url)):
             {paper.title}
         tP(class = "authors"): {paper.authors.join(", ")}
         tDetails(class = "abstract"):
@@ -75,12 +75,13 @@ proc paperCard(paper: Paper; index: int): TagRef =
             for category in paper.categories:
               tSpan(class = "tag"): {category}
           tDiv(class = "paper-links"):
-            tA(href = attr(url), target = "_blank", rel = "noopener noreferrer",
-                "aria-label" = attr("Open " & paper.title & " on arXiv")):
-              "arXiv ↗"
-            tA(class = "pdf-link", href = attr(pdf), target = "_blank",
-                rel = "noopener noreferrer", "aria-label" = attr("Read PDF of " & paper.title)):
-              "Read PDF ↗"
+            tButton(class = "analysis-link", "type" = "button", "data-analysis-source" = "arxiv",
+                "data-analysis-id" = attr(paper.id), "aria-label" = attr("AI Analysis of " & paper.title)):
+              "AI Analysis ✳"
+            tA(href = attr(url), "aria-label" = attr("Read arXiv record: " & paper.title)):
+              "arXiv record →"
+            tA(class = "pdf-link", href = attr(pdf), "aria-label" = attr("Read PDF of " & paper.title)):
+              "Read PDF →"
 
 proc starter(query, field, eyebrow, title, description: string): TagRef =
   var options = defaultOptions()
@@ -190,9 +191,16 @@ proc siteHeader*(source = "arxiv"): TagRef =
         else:
           tA(href = "/institutions"): "Institutions"
         tA(href = "/graph"): "Graph"
-        tA(class = "nav-guide", href = "#search-guide"):
-          "Search guide "
-          tSpan("aria-hidden" = "true"): "↗"
+        if source == "chat":
+          tA(class = "active", href = "/chat", "aria-current" = "page"): "Chat"
+        else:
+          tA(href = "/chat"): "Chat"
+        if source in ["chat", "document", "chat-guide"]:
+          tA(class = "nav-guide", href = "/chat/guide"): "Chat guide ↗"
+        else:
+          tA(class = "nav-guide", href = "#search-guide"):
+            "Search guide "
+            tSpan("aria-hidden" = "true"): "↗"
       tSpan(class = "local-indicator"): "LOCAL WORKSPACE"
 
 proc hero(): TagRef =
@@ -361,10 +369,11 @@ proc siteFooter*(source = "arxiv"): TagRef =
       tButton(id = "copy-search", "type" = "button", hidden = ""): "Copy search link ↗"
     tDiv(class = "sr-only", id = "status", role = "status", "aria-live" = "polite")
 
-proc pageDocument*(title, description: string; content: TagRef): TagRef =
+proc pageDocument*(title, description: string; content: TagRef; extraHead: TagRef = nil): TagRef =
   # The document declaration is a node too; all page markup uses the DSL below.
   let doctype = initTag("!DOCTYPE")
   doctype.addArg("html")
+  let additions = if extraHead == nil: initTag("div", onlyChildren = true) else: extraHead
   return buildHtml:
     {doctype}
     tHtml(lang = "en"):
@@ -378,6 +387,7 @@ proc pageDocument*(title, description: string; content: TagRef): TagRef =
         tLink(rel = "stylesheet", href = "/assets/theme.css")
         tLink(rel = "stylesheet", href = "/assets/style.css")
         tScript(src = "/assets/app.js", "defer" = "")
+        {additions}
       tBody:
         {content}
 

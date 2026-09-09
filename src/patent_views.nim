@@ -78,7 +78,7 @@ proc patentFilters(options: PatentOptions): TagRef =
 proc patentCard(patent: JsonNode; index: int): TagRef =
   let id = patent["publication_number"].getStr()
   let title = patent["title"].getStr()
-  let url = patent["url"].getStr()
+  let url = "/document?source=patents&id=" & id
   return buildHtml:
     tArticle(class = "paper"):
       tDiv(class = "paper-number"): "{index:02}"
@@ -88,7 +88,7 @@ proc patentCard(patent: JsonNode; index: int): TagRef =
           if patent["filing_date"].getStr().len > 0:
             tSpan: "Filed {patent[\"filing_date\"].getStr()}"
         tH3:
-          tA(href = attr(url), target = "_blank", rel = "noopener noreferrer"): {title}
+          tA(href = attr(url)): {title}
         if patent["assignee"].getStr().len > 0:
           tP(class = "authors"): {patent["assignee"].getStr()}
         if patent["snippet"].getStr().len > 0:
@@ -98,12 +98,14 @@ proc patentCard(patent: JsonNode; index: int): TagRef =
             if patent["publication_date"].getStr().len > 0:
               tSpan(class = "tag"): "Published {patent[\"publication_date\"].getStr()}"
           tDiv(class = "paper-links"):
+            tButton(class = "analysis-link", "type" = "button", "data-analysis-source" = "patents",
+                "data-analysis-id" = attr(id), "aria-label" = attr("AI Analysis of " & title)):
+              "AI Analysis ✳"
             tA(class = "investigate-link", href = attr("/graph?patent=" & id),
                 "aria-label" = attr("Investigate " & id)): "Investigate ⌁"
-            tA(href = attr(url), target = "_blank", rel = "noopener noreferrer"): "Google Patents ↗"
+            tA(href = attr(url)): "Patent record →"
             if patent["pdf_url"].getStr().len > 0:
-              tA(class = "pdf-link", href = attr(patent["pdf_url"].getStr()),
-                  target = "_blank", rel = "noopener noreferrer"): "Read PDF ↗"
+              tA(class = "pdf-link", href = attr(url & "&view=pdf")): "Read PDF →"
 
 proc patentStarter(query, number, title, description: string): TagRef =
   var options = defaultPatentOptions()

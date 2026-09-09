@@ -1,6 +1,25 @@
 const form = document.querySelector('#search-form');
 const status = document.querySelector('#status');
 
+let analysisStarting = false;
+window.TurncoatStartAnalysis = (reference) => {
+  if (analysisStarting) return;
+  const analysis = crypto.randomUUID();
+  sessionStorage.setItem('turncoat-analysis-intent:' + analysis, JSON.stringify({reference, createdAt: Date.now()}));
+  location.assign('/chat?' + new URLSearchParams({...reference, analysis}));
+  analysisStarting = true;
+};
+window.addEventListener('pageshow', () => { analysisStarting = false; });
+for (const button of document.querySelectorAll('[data-analysis-source]')) {
+  button.addEventListener('click', () => {
+    try {
+      window.TurncoatStartAnalysis({source: button.dataset.analysisSource, id: button.dataset.analysisId});
+    } catch {
+      status.textContent = 'AI Analysis needs browser session storage. Enable it, or open the document and choose Ask about this document.';
+    }
+  });
+}
+
 function resetLoading() {
   if (!form) return;
   form.removeAttribute('aria-busy');
@@ -16,7 +35,7 @@ form?.addEventListener('submit', () => {
 });
 
 window.addEventListener('pageshow', resetLoading);
-document.querySelector('a[href="#search-guide"]').addEventListener('click', () => {
+document.querySelector('a[href="#search-guide"]')?.addEventListener('click', () => {
   document.querySelector('#search-guide').open = true;
 });
 document.addEventListener('keydown', (event) => {
@@ -34,7 +53,7 @@ for (const id of ['sort', 'size']) {
 }
 
 const copy = document.querySelector('#copy-search');
-if (navigator.clipboard && location.search) {
+if (copy && navigator.clipboard && location.search) {
   copy.hidden = false;
   copy.addEventListener('click', async () => {
     try {

@@ -98,7 +98,13 @@ suite "Patent queries and provider responses":
     check tree.findAll("input").filterIt(it.attr("id") == "assignee")[0].attr("form") == "search-form"
     check tree.findAll("a").anyIt(it.attr("href") == "/" and it.innerText.strip == "Papers")
     check tree.findAll("a").anyIt(it.innerText.strip == "Next →")
-    check tree.findAll("a").filterIt(it.innerText.strip == "Read PDF ↗").len == 1
+    let pdfLinks = tree.findAll("a").filterIt(it.innerText.strip == "Read PDF →")
+    check pdfLinks.len == 1
+    check pdfLinks[0].attr("href") == "/document?source=patents&id=US1234567B1&view=pdf"
+    check pdfLinks[0].attr("target") == ""
+    let analyses = tree.findAll("button").filterIt(it.attr("data-analysis-source") == "patents")
+    check analyses.len == data["results"].len
+    check analyses[0].attr("data-analysis-id") == "US1234567B1"
     for select in tree.findAll("select"):
       check select.findAll("option").filterIt("selected" in it.attrs).len == 1
     check "class=\"paper\"" notin $renderPatentPage(defaultPatentOptions())

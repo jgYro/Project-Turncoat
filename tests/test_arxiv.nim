@@ -120,7 +120,9 @@ suite "Atom feeds and rendering":
     check "&lt;script&gt;alert(1)&lt;/script&gt;" in page
     check "<img src=x" notin page
     check "&lt;img src=x" in page
-    check "https://arxiv.org/pdf/1706.03762v7" in page
+    check "/document?source=arxiv&amp;id=1706.03762v7&amp;view=pdf" in page
+    check "data-analysis-source=\"arxiv\"" in page
+    check "data-analysis-id=\"1706.03762v7\"" in page
     check "Next →" in page
     check "<img src=x" notin $renderPage(options, error = "<img src=x>")
 

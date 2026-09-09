@@ -4,6 +4,12 @@
   const el = id => document.getElementById(id);
   const params = new URLSearchParams(location.search);
   const token = document.querySelector('meta[name="turncoat-token"]').content;
+  const propertiesTree = new TurncoatJsonTree(el('properties'),link=>{
+    const source=TurncoatDocumentLink(selected?.properties.sourceUrl);
+    if(source && new URL(source,location.origin).searchParams.get('id')===new URL(link,location.origin).searchParams.get('id'))
+      return link+'&'+new URLSearchParams({dataset:investigation||el('dataset').value,node:selected.id});
+    return link;
+  });
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let investigation = params.get('investigation'), job = null, pollTimer = null, busy = false;
   let searchAvailable = false;
@@ -11,11 +17,11 @@
   const viewport = svg.append('g');
   const linkLayer = viewport.append('g');
   const nodeLayer = viewport.append('g');
-  let followLayout = true, fitTimer = null, zoomLevel = 1;
+  let followLayout = true, fitTimer = null, zoomLevel = 1, lastFit = 0;
   svg.append('defs').append('marker').attr('id', 'arrow').attr('viewBox', '0 -5 10 10')
     .attr('refX', 20).attr('refY', 0).attr('markerWidth', 6).attr('markerHeight', 6)
     .attr('orient', 'auto').append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', '#667b89');
-  const zoom = d3.zoom().scaleExtent([0.1, 5]).on('zoom', event => {
+  const zoom = d3.zoom().scaleExtent([0.02, 5]).on('zoom', event => {
     viewport.attr('transform', event.transform); zoomLevel = event.transform.k;
     if (event.sourceEvent) followLayout = false;
     updateLabels();
@@ -54,7 +60,9 @@
     el('node-details').hidden = !node;
     el('node-id').textContent = node?.id || '';
     el('node-label').textContent = node?.label || '';
-    el('properties').textContent = node ? JSON.stringify(node.properties, null, 2) : '';
+    propertiesTree.update(node?.properties || null, node?.id || '');
+    el('chat-link').hidden = !node;
+    if(node)el('chat-link').href='/chat?'+new URLSearchParams({dataset:investigation||el('dataset').value,node:node.id});
     el('selected-title').textContent = node ? caption(node) : '';
     el('evidence-note').textContent = node?.label === 'Name mention'
       ? 'A name listed on this source record. People with the same name have not been merged.'
@@ -65,7 +73,12 @@
     let safeSource = false;
     try { const url = new URL(source); safeSource = url.protocol === 'https:' && ['arxiv.org','export.arxiv.org','patents.google.com'].includes(url.hostname) && !url.username && !url.password; } catch {}
     el('source-link').hidden = !safeSource;
-    if (safeSource) el('source-link').href = source; else el('source-link').removeAttribute('href');
+    if (safeSource) {
+      const reader=TurncoatDocumentLink(source);
+      el('source-link').href=reader?reader+'&'+new URLSearchParams({dataset:investigation||el('dataset').value,node:node.id}):source;
+      el('source-link').textContent=reader?'Read document →':'Open source ↗';
+      if(reader)el('source-link').removeAttribute('target');else el('source-link').target='_blank';
+    } else el('source-link').removeAttribute('href');
     nodeSelection.classed('selected', d => d.id === node?.id);
     updateLabels();
     updateExpansion();
@@ -81,15 +94,19 @@
     // Keep visible names readable when the overview zooms out to fit a large graph.
     nodeLayer.selectAll('g.node text').attr('transform', `scale(${1 / zoomLevel})`);
   }
-  function fitGraph() {
-    if (!nodes.size) return;
+  function fitGraph(animate = true) {
     const values = [...nodes.values()].filter(n => Number.isFinite(n.x) && Number.isFinite(n.y));
-    if (!values.length) return;
     const {width,height} = el('canvas').getBoundingClientRect();
+    if (width <= 0 || height <= 0) return;
+    lastFit = performance.now();
+    svg.interrupt();
+    if (!values.length) {svg.call(zoom.transform,d3.zoomIdentity.translate(width/2,height/2)); return;}
     const [left,right] = d3.extent(values,n=>n.x), [top,bottom] = d3.extent(values,n=>n.y);
-    const scale = Math.max(.1,Math.min(1.15,(width-100)/(right-left+160),(height-80)/(bottom-top+100)));
+    const padX = Math.min(100,width*.2), padY = Math.min(55,height*.2);
+    const scale = Math.max(.02,Math.min(1.15,(width-2*padX)/(right-left+60),(height-2*padY)/(bottom-top+60)));
     const transform = d3.zoomIdentity.translate(width/2-scale*(left+right)/2,height/2-scale*(top+bottom)/2).scale(scale);
-    svg.transition().duration(reducedMotion ? 0 : 450).call(zoom.transform,transform);
+    if (animate && !reducedMotion) svg.transition().duration(220).call(zoom.transform,transform);
+    else svg.call(zoom.transform,transform);
   }
   function updateExpansion() {
     el('discover').disabled = !investigation || busy || !selected || !['Patent','Paper','Name mention'].includes(selected.label) || job?.requests >= job?.limits.maxRequests;
@@ -113,6 +130,7 @@
       return `M${d.source.x},${d.source.y}A${radius},${radius} 0 0,1 ${d.target.x},${d.target.y}`;
     });
     nodeSelection.attr('transform', d => `translate(${d.x || 0},${d.y || 0})`);
+    if (followLayout && performance.now()-lastFit > 250) fitGraph();
   }
   function legend() {
     el('legend').replaceChildren();
@@ -147,6 +165,7 @@
       group.on('click', (_, node) => inspect(node)).on('dblclick', (event, node) => {event.preventDefault(); inspect(node); expand(node);})
         .on('keydown', (event, node) => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); inspect(node);}})
         .call(d3.drag().on('start', (event, node) => {
+          followLayout = false; svg.interrupt();
           if (!paused && !event.active) simulation.alphaTarget(0.2).restart(); node.fx = node.x; node.fy = node.y;
         }).on('drag', (event, node) => {node.fx = node.x = event.x; node.fy = node.y = event.y; tick();})
           .on('end', (event, node) => {if (!event.active) simulation.alphaTarget(0); node.fx = null; node.fy = null;}));
@@ -163,7 +182,7 @@
     legend();
     updateLabels();
     clearTimeout(fitTimer);
-    if (followLayout) fitTimer = setTimeout(() => {if (followLayout) fitGraph();}, 500);
+    if (followLayout) {fitGraph(false); fitTimer = setTimeout(() => {if (followLayout) fitGraph();}, 500);}
   }
   function merge(data) {
     const newNodes = data.nodes.filter(n => !nodes.has(n.id)), newLinks = data.links.filter(l => !links.has(l.id));
@@ -231,10 +250,96 @@
   el('center').addEventListener('click', () => {followLayout = true; fitGraph();});
   el('pause').addEventListener('click', () => {paused = !paused; el('pause').textContent = paused ? 'Resume layout' : 'Pause layout'; if (paused) simulation.stop(); else simulation.alpha(0.4).restart();});
   el('dataset').addEventListener('change', () => {detachInvestigation(); searchGeneration++; el('search-submit').disabled = false; clear(); el('results').replaceChildren(); el('search-status').textContent = ''; el('search-more').hidden = true; searchPage = null;});
+  const workspace = el('graph-workspace'), compact = matchMedia('(max-width: 1000px)');
+  const panelIds = {left:'search-panel',right:'details-panel'}, panelNames = {left:'workspace',right:'inspector'};
+  const panelKey = 'turncoat-graph-panels-v1';
+  let storedPanels = {};
+  try {storedPanels = JSON.parse(localStorage.getItem(panelKey)) || {};} catch {}
+  const panels = {};
+  for (const side of ['left','right']) {
+    const saved = storedPanels[side] || {};
+    panels[side] = {mode:saved.mode === 'floating' ? 'floating' : 'docked', hidden:compact.matches || saved.hidden === true,
+      x:Number.isFinite(saved.x)?saved.x:null, y:Number.isFinite(saved.y)?saved.y:null};
+  }
+  function savePanels() {try {localStorage.setItem(panelKey,JSON.stringify(panels));} catch {}}
+  function positionPanel(side) {
+    const panel = el(panelIds[side]), state = panels[side];
+    if (state.mode !== 'floating' || state.hidden) return;
+    const width = workspace.clientWidth, height = workspace.clientHeight;
+    const x = state.x ?? (side === 'left' ? 12 : width-panel.offsetWidth-12), y = state.y ?? 12;
+    state.x = Math.max(0,Math.min(x,width-panel.offsetWidth)); state.y = Math.max(0,Math.min(y,height-panel.offsetHeight));
+    panel.style.left = state.x+'px'; panel.style.top = state.y+'px';
+  }
+  function applyPanel(side) {
+    const state = panels[side], panel = el(panelIds[side]), toggle = el('toggle-'+side);
+    panel.hidden = state.hidden; panel.classList.toggle('floating',state.mode === 'floating');
+    workspace.classList.toggle(side+'-free',state.hidden || state.mode === 'floating');
+    toggle.setAttribute('aria-expanded',String(!state.hidden));
+    toggle.setAttribute('aria-label',(state.hidden?'Show ':'Hide ')+panelNames[side]+' panel');
+    toggle.title = toggle.getAttribute('aria-label');
+    const dock = panel.querySelector('[data-panel-action="dock"]'), header = panel.querySelector('.panel-header');
+    const action = state.mode === 'floating' ? 'Dock' : 'Undock';
+    dock.textContent = action; dock.title = action+' '+panelNames[side]+' panel'; dock.setAttribute('aria-label',dock.title);
+    header.tabIndex = state.mode === 'floating' ? 0 : -1;
+    header.title = state.mode === 'floating' ? 'Drag to move. Focus here and use arrow keys to move; Escape hides the panel.' : '';
+    if (state.mode === 'docked') for (const property of ['left','top','width','height']) panel.style.removeProperty(property);
+    positionPanel(side);
+  }
+  function showPanel(side, visible) {
+    panels[side].hidden = !visible;
+    if (compact.matches && visible) {const other = side === 'left' ? 'right' : 'left'; panels[other].hidden = true; applyPanel(other);}
+    applyPanel(side); savePanels();
+    if (visible) el(panelIds[side]).querySelector('[data-panel-action="dock"]').focus(); else el('toggle-'+side).focus();
+  }
+  for (const side of ['left','right']) {
+    const panel = el(panelIds[side]), header = panel.querySelector('.panel-header');
+    el('toggle-'+side).addEventListener('click',()=>showPanel(side,panels[side].hidden));
+    panel.querySelector('[data-panel-action="hide"]').addEventListener('click',()=>showPanel(side,false));
+    panel.querySelector('[data-panel-action="dock"]').addEventListener('click',()=>{
+      panels[side].mode = panels[side].mode === 'floating' ? 'docked' : 'floating'; applyPanel(side); savePanels();
+      if (panels[side].mode === 'floating') header.focus();
+    });
+    panel.addEventListener('keydown',event=>{if (event.key === 'Escape') {event.preventDefault();showPanel(side,false);}});
+    header.addEventListener('keydown',event=>{
+      if (event.target !== header || panels[side].mode !== 'floating' || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
+      event.preventDefault(); const amount = event.shiftKey ? 40 : 10;
+      panels[side].x += event.key === 'ArrowRight' ? amount : event.key === 'ArrowLeft' ? -amount : 0;
+      panels[side].y += event.key === 'ArrowDown' ? amount : event.key === 'ArrowUp' ? -amount : 0;
+      positionPanel(side);savePanels();
+    });
+    let drag = null;
+    header.addEventListener('pointerdown',event=>{
+      if (panels[side].mode !== 'floating' || event.button !== 0 || event.target.closest('button')) return;
+      event.preventDefault();header.focus();header.setPointerCapture(event.pointerId);
+      drag = {x:event.clientX,y:event.clientY,left:panels[side].x,top:panels[side].y};panel.classList.add('dragging');
+    });
+    header.addEventListener('pointermove',event=>{
+      if (!drag) return;
+      panels[side].x = drag.left+event.clientX-drag.x;panels[side].y = drag.top+event.clientY-drag.y;positionPanel(side);
+    });
+    for (const event of ['pointerup','pointercancel','lostpointercapture']) header.addEventListener(event,()=>{drag=null;panel.classList.remove('dragging');savePanels();});
+    applyPanel(side);
+  }
+  compact.addEventListener('change',()=>{
+    if (compact.matches) for (const side of ['left','right']) panels[side].hidden = true;
+    for (const side of ['left','right']) applyPanel(side);
+  });
+  const panelResize = new ResizeObserver(()=>{for (const side of ['left','right']) positionPanel(side);});
+  panelResize.observe(workspace);for (const id of Object.values(panelIds)) panelResize.observe(el(id));
+  let canvasSize = null;
   new ResizeObserver(() => {
     const {width, height} = el('canvas').getBoundingClientRect();
-    svg.attr('viewBox', `0 0 ${width} ${height}`); simulation.force('center', d3.forceCenter(width / 2, height / 2));
-    if (!paused) simulation.alpha(0.3).restart();
+    if (width <= 0 || height <= 0 || (canvasSize?.width === width && canvasSize?.height === height)) return;
+    svg.attr('viewBox', `0 0 ${width} ${height}`); zoom.extent([[0,0],[width,height]]);
+    el('canvas').style.setProperty('--radar-size',Math.min(460,width*.7,height*.75)+'px');
+    // Layout uses stable world coordinates. Panel changes resize the camera, not the simulation.
+    if (followLayout || !canvasSize) fitGraph(false);
+    else {
+      svg.interrupt();
+      const current = d3.zoomTransform(svg.node()), center = current.invert([canvasSize.width/2,canvasSize.height/2]);
+      svg.call(zoom.transform,d3.zoomIdentity.translate(width/2-current.k*center[0],height/2-current.k*center[1]).scale(current.k));
+    }
+    canvasSize = {width,height};
   }).observe(el('canvas'));
   function detachInvestigation() {
     clearTimeout(pollTimer); investigation = null; job = null; busy = false;
@@ -264,7 +369,7 @@
       limits.maxNodes = Math.max(limits.maxNodes, job.limits.maxNodes);
       limits.maxEdges = Math.max(limits.maxEdges, job.limits.maxEdges);
       merge(data);
-      if (selected) {el('selected-title').textContent = caption(selected); el('properties').textContent = JSON.stringify(selected.properties, null, 2);}
+      if (selected) {el('selected-title').textContent = caption(selected); propertiesTree.update(selected.properties,selected.id);}
       if (!selected && nodes.has(job.seed)) inspect(nodes.get(job.seed));
       if (![...el('dataset').options].some(option => option.value === id)) {
         const option = document.createElement('option'); option.value = id; option.textContent = job.publicationNumber + ' investigation'; el('dataset').append(option);

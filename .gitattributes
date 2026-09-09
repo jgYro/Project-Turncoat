@@ -2,3 +2,4 @@
 tests/fixtures/hit/*.html whitespace=-blank-at-eol,-blank-at-eof
 tests/fixtures/nuaa/*.html whitespace=-blank-at-eol,-blank-at-eof
 tests/fixtures/npu/*.html whitespace=-blank-at-eol,-blank-at-eof
+*.pdf binary
