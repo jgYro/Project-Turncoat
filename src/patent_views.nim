@@ -98,6 +98,8 @@ proc patentCard(patent: JsonNode; index: int): TagRef =
             if patent["publication_date"].getStr().len > 0:
               tSpan(class = "tag"): "Published {patent[\"publication_date\"].getStr()}"
           tDiv(class = "paper-links"):
+            tA(class = "investigate-link", href = attr("/graph?patent=" & id),
+                "aria-label" = attr("Investigate " & id)): "Investigate ⌁"
             tA(href = attr(url), target = "_blank", rel = "noopener noreferrer"): "Google Patents ↗"
             if patent["pdf_url"].getStr().len > 0:
               tA(class = "pdf-link", href = attr(patent["pdf_url"].getStr()),
@@ -164,7 +166,7 @@ proc patentResults(options: PatentOptions; data: JsonNode; error: string): TagRe
       "Counts are approximate. Google groups related publications into patent families and limits accessible pages. Titles and snippets may be shortened."
 
 proc renderPatentPage*(options: PatentOptions; data: JsonNode = nil; error = ""): TagRef =
-  let title = if options.query.len > 0: options.query & " — Patent Explorer" else: "Patent Explorer — Discover inventions"
+  let title = if options.query.len > 0: options.query & " — Patents" else: "Patents"
   let heading = if error.len > 0: "Search needs attention"
     elif data != nil: "About " & insertSep($data["total"].getBiggestInt(), ',') & " patent results"
     else: "A starting point for discovery"
@@ -175,12 +177,12 @@ proc renderPatentPage*(options: PatentOptions; data: JsonNode = nil; error = "")
         tDiv(class = "hero-copy"):
           tP(class = "eyebrow"):
             tSpan(class = "tiny-line")
-            " A WINDOW INTO INVENTION"
+            " INVENTIONS / GOOGLE PATENTS"
           tH1(id = "hero-title"):
-            "Every invention starts"
+            "Explore inventions."
             tBr
-            "with a "
-            tEm: "possibility."
+            "Follow the "
+            tEm: "inventors."
           tP(class = "hero-description"): "Explore patents. Follow inventors. Connect the possibilities."
       {patentForm(options)}
       tP(class = "institution-shortcut"):

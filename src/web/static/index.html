@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graph · Project Turncoat</title>
+  <meta name="turncoat-token" content="__TURNCOAT_TOKEN__">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/theme.css">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/d3.v7.min.js" defer></script>
+  <script src="/assets/graph.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#canvas">Skip to graph</a>
+  <header class="site-header"><a class="brand" href="/" aria-label="Project Turncoat home"><span class="brand-mark" aria-hidden="true">✳</span><span><span class="brand-light">Project </span>Turncoat</span></a>
+    <nav aria-label="Main navigation"><a href="/">Papers</a><a href="/patents">Patents</a><a href="/institutions">Institutions</a><a class="active" href="/graph" aria-current="page">Graph</a><a class="nav-guide" href="/#search-guide">Search guide ↗</a></nav>
+    <span class="local-indicator">LOCAL WORKSPACE</span></header>
+  <section class="mission-bar" aria-label="Investigation progress">
+    <div><p class="eyebrow">LIVE DISCOVERY / 01</p><h1 id="mission-title">Follow the names. Inspect the evidence.</h1>
+      <p id="mission-note">Open a patent’s Investigate link to search its inventors across Google Patents and arXiv.</p></div>
+    <div class="telemetry"><span id="job-state">STANDBY</span><span id="request-count">2 PROVIDERS · LOCAL STORAGE</span><button id="stop-investigation" hidden>Stop investigation</button></div>
+  </section>
+  <main>
+    <aside class="search-panel">
+      <section class="saved"><h2>Investigations</h2><div id="investigations-list">Loading saved work…</div></section>
+      <h2>Local graph</h2>
+      <label for="dataset">Dataset</label><select id="dataset" disabled><option>Loading datasets…</option></select>
+      <form id="search-form"><label for="search">Search nodes</label>
+        <input id="search" type="search" maxlength="512" placeholder="Name, title, keyword…" required>
+        <button id="search-submit" type="submit">Search</button>
+      </form>
+      <p id="search-status" role="status"></p><div id="results"></div>
+      <button id="search-more" hidden>More results</button>
+      <section><h2>Legend</h2><div id="legend">Labels appear as you explore.</div></section>
+    </aside>
+    <section class="graph-panel" aria-label="Graph explorer">
+      <nav aria-label="Graph controls">
+        <button id="discover" disabled>Search related names</button>
+        <button id="expand" disabled>Load saved neighbors</button><button id="more" hidden>Load more relationships</button>
+        <button id="center">Center</button><button id="pause">Pause layout</button><button id="clear">Clear graph</button>
+      </nav>
+      <p id="graph-status" role="status">Select a dataset and search for a seed node.</p>
+      <div id="canvas"><div class="radar" aria-hidden="true"></div><svg id="graph" aria-label="Interactive graph: drag nodes, scroll to zoom; select a node and press Enter to inspect" role="group"></svg><div id="canvas-empty">⌁<strong>Your next lead starts here.</strong><span>Investigate a patent or explore a saved dataset.</span><a href="/patents">Find a patent ↗</a></div></div>
+      <footer><span id="counts">0 nodes · 0 relationships</span><span>Drag to move · scroll to zoom · double-click to expand</span></footer>
+    </section>
+    <aside class="details"><h2>Selected node</h2><p id="selection-hint">Click a node to inspect its properties.</p>
+      <h3 id="selected-title"></h3><p id="evidence-note"></p><a id="source-link" hidden target="_blank" rel="noopener noreferrer">Open source ↗</a>
+      <div id="name-spelling" hidden><label for="spelling">Search spelling</label><input id="spelling" maxlength="200" placeholder="Original or known Latin spelling"><p>Original text stays saved. Alternate spellings are recorded as user supplied.</p></div>
+      <dl id="node-details" hidden><dt>ID</dt><dd id="node-id"></dd><dt>Label</dt><dd id="node-label"></dd></dl>
+      <p id="expansion-status"></p><details><summary>Source properties</summary><pre id="properties"></pre></details>
+      <section class="activity"><h2>Activity stream <span class="activity-dot"></span></h2><ol id="activity-log" aria-live="polite"></ol></section>
+    </aside>
+  </main>
+  <noscript><p class="noscript">Enable JavaScript to explore the graph. Papers, patents, and institutions remain accessible through the navigation.</p></noscript>
+</body>
+</html>

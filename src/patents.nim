@@ -200,8 +200,12 @@ proc parsePatentDetail*(body, requestedId: string): JsonNode =
   let document = parseHtml(body)
   var title, abstractText, pdf, filing, published, publication: string
   var inventors, assignees: seq[string]
+  var rawMetadata = newJArray()
   for meta in document.findAll("meta"):
     let value = meta.attr("content").splitWhitespace().join(" ")
+    if meta.attr("name").startsWith("DC."):
+      rawMetadata.add(%*{"name": meta.attr("name"), "scheme": meta.attr("scheme"),
+        "content": meta.attr("content")})
     case meta.attr("name")
     of "DC.title": title = value
     of "DC.description": abstractText = value
@@ -210,8 +214,8 @@ proc parsePatentDetail*(body, requestedId: string): JsonNode =
       if meta.attr("scheme") == "dateSubmitted": filing = value
       elif meta.attr("scheme") == "issue": published = value
     of "DC.contributor":
-      if meta.attr("scheme") == "inventor": inventors.add(value)
-      elif meta.attr("scheme") == "assignee": assignees.add(value)
+      if meta.attr("scheme") == "inventor": inventors.add(meta.attr("content"))
+      elif meta.attr("scheme") == "assignee": assignees.add(meta.attr("content"))
     else: discard
   # Read the primary record, not publication numbers in its citation tables.
   for node in document.findAll("dd"):
@@ -223,7 +227,7 @@ proc parsePatentDetail*(body, requestedId: string): JsonNode =
   result = %*{"source": "Google Patents", "publication_number": id,
     "title": title, "abstract": abstractText, "inventors": inventors,
     "original_assignees": assignees, "filing_date": filing, "publication_date": published,
-    "url": patentUrl(id), "pdf_url": pdf}
+    "url": patentUrl(id), "pdf_url": pdf, "raw_metadata": rawMetadata}
 
 proc patentErrorJson*(status: int; message: string): JsonNode =
   let code = case status

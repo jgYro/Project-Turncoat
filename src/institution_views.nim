@@ -86,4 +86,4 @@ proc renderInstitutionsPage*(presets: seq[InstitutionPreset]; token: string;
         tP: "arXiv has no affiliation search filter. A university-name search can miss papers whose affiliation appears only in the full text."
         tA(href = "https://support.google.com/faqs/answer/7049475", target = "_blank", rel = "noopener noreferrer"): "Google Patents search help ↗"
     {siteFooter("institutions")}
-  pageDocument("Institutions — Research Explorer", "Save institution searches for Google Patents and arXiv.", content)
+  pageDocument("Institutions", "Save institution searches for Google Patents and arXiv.", content)

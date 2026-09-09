@@ -167,17 +167,14 @@ proc renderResults(options: SearchOptions; data: SearchResult; error: string): T
         "Showing the first 30,000 matches available through the API. Refine your search for more focused results."
 
 proc siteHeader*(source = "arxiv"): TagRef =
-  let name = if source == "patents": "patents" elif source == "institutions": "research" else: "arXiv"
-  let home = if source == "patents": "/patents" elif source == "institutions": "/institutions" else: "/"
   return buildHtml:
     tA(class = "skip-link", href = "#results"): "Skip to results"
-    tHeader(class = "site-header wrap"):
-      tA(class = "brand", href = home, "aria-label" = attr(name & " Explorer home")):
+    tHeader(class = "site-header"):
+      tA(class = "brand", href = "/", "aria-label" = "Project Turncoat home"):
         tSpan(class = "brand-mark", "aria-hidden" = "true"): "✳"
         tSpan:
-          {name}
-          tSpan(class = "brand-divider"): "/"
-          tSpan(class = "brand-light"): "explorer"
+          tSpan(class = "brand-light"): "Project "
+          "Turncoat"
       tNav("aria-label" = "Main navigation"):
         if source == "arxiv":
           tA(class = "active", href = "/", "aria-current" = "page"): "Papers"
@@ -192,12 +189,11 @@ proc siteHeader*(source = "arxiv"): TagRef =
           tA(class = "active", href = "/institutions", "aria-current" = "page"): "Institutions"
         else:
           tA(href = "/institutions"): "Institutions"
-        tA(href = "#search-guide"):
+        tA(href = "/graph"): "Graph"
+        tA(class = "nav-guide", href = "#search-guide"):
           "Search guide "
           tSpan("aria-hidden" = "true"): "↗"
-      tSpan(class = "header-note"):
-        tSpan(class = "status-dot")
-        " Open research. Open possibilities."
+      tSpan(class = "local-indicator"): "LOCAL WORKSPACE"
 
 proc hero(): TagRef =
   return buildHtml:
@@ -205,12 +201,12 @@ proc hero(): TagRef =
       tDiv(class = "hero-copy"):
         tP(class = "eyebrow"):
           tSpan(class = "tiny-line")
-          " A WINDOW INTO OPEN RESEARCH"
+          " RESEARCH / ARXIV"
         tH1(id = "hero-title"):
-          "Big ideas start with"
+          "Trace ideas."
           tBr
-          "a little "
-          tEm: "curiosity."
+          "Follow the "
+          tEm: "research."
         tP(class = "hero-description"): "Explore papers. Connect ideas. Find what’s next."
       tDiv(class = "orbit-art", "aria-hidden" = "true"):
         tSvg(viewBox = "0 0 350 220", fill = "none"):
@@ -222,9 +218,9 @@ proc hero(): TagRef =
               tEllipse(cx = "175", cy = "110", rx = radius, ry = "76",
                 transform = "rotate(-25 175 110)")
             tPath(d = "M40 174L307 49M58 40L295 177", "stroke-dasharray" = "3 6")
-          tCircle(cx = "281", cy = "60", r = "5", fill = "#c17b44")
-          tCircle(cx = "93", cy = "166", r = "4", fill = "#56634b")
-          tPath(d = "M305 164v16m-8-8h16", stroke = "#c17b44", "stroke-width" = "1.4")
+          tCircle(cx = "281", cy = "60", r = "5", fill = "#63e4dc")
+          tCircle(cx = "93", cy = "166", r = "4", fill = "#efc579")
+          tPath(d = "M305 164v16m-8-8h16", stroke = "#63e4dc", "stroke-width" = "1.4")
         tSpan(class = "art-caption"): "IDEAS HAVE NO BOUNDARIES"
 
 proc searchForm(options: SearchOptions): TagRef =
@@ -346,12 +342,11 @@ proc resultsSection(options: SearchOptions; data: SearchResult; error: string): 
       {renderResults(options, data, error)}
 
 proc siteFooter*(source = "arxiv"): TagRef =
-  let name = if source == "patents": "patents" elif source == "institutions": "research" else: "arXiv"
   let provider = if source == "patents": "Google Patents" else: "arXiv"
   let providerUrl = if source == "patents": "https://patents.google.com" else: "https://arxiv.org"
   return buildHtml:
     tFooter(class = "site-footer wrap"):
-      tSpan(class = "footer-brand"): "{name} / explorer"
+      tSpan(class = "footer-brand"): "Project Turncoat"
       tP:
         "Independent discovery interface. "
         if source == "institutions":
@@ -377,17 +372,18 @@ proc pageDocument*(title, description: string; content: TagRef): TagRef =
         tMeta(charset = "utf-8")
         tMeta(name = "viewport", content = "width=device-width, initial-scale=1")
         tMeta(name = "description", content = attr(description))
-        tMeta(name = "color-scheme", content = "light")
-        tTitle: {title}
+        tMeta(name = "color-scheme", content = "dark")
+        tTitle: {title & " · Project Turncoat"}
         tLink(rel = "icon", href = "/favicon.svg", "type" = "image/svg+xml")
+        tLink(rel = "stylesheet", href = "/assets/theme.css")
         tLink(rel = "stylesheet", href = "/assets/style.css")
         tScript(src = "/assets/app.js", "defer" = "")
       tBody:
         {content}
 
 proc renderPage*(options: SearchOptions; data = SearchResult(); error = ""): TagRef =
-  let title = if options.query.len > 0: options.query & " — arXiv Explorer"
-    else: "arXiv Explorer — Follow your curiosity"
+  let title = if options.query.len > 0: options.query & " — Papers"
+    else: "Papers"
   let content = buildHtml:
     {siteHeader()}
     tMain(class = "wrap"):

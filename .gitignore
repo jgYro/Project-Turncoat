@@ -11,3 +11,7 @@ artifacts/
 .DS_Store
 data/institutions.json
 data/institutions.json.tmp
+data/*.db
+data/*.db-shm
+data/*.db-wal
+nimble.develop

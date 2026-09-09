@@ -1,0 +1,7 @@
+{"type":"node","oid":"demo:institution:1","label":"Institution","properties":{"name":"Example Research Institute","description":"Synthetic fixture institution"}}
+{"type":"node","oid":"demo:person:1","label":"Person","properties":{"name":"Alex Example","aliases":["A. Example"],"keywords":["graph","research"],"profile":{"active":true,"office":7}}}
+{"type":"node","oid":"demo:paper:1","label":"Paper","properties":{"title":"Exploring Local Graphs","year":2026,"keywords":["graph","visualization"]}}
+{"type":"node","oid":"demo:patent:1","label":"Patent","properties":{"title":"Synthetic Graph Device","description":"Fictional invention for software testing","number":"TEST-0001"}}
+{"type":"edge","oid":"demo:edge:employs","source":"demo:institution:1","target":"demo:person:1","label":"EMPLOYS","properties":{"since":2024}}
+{"type":"edge","oid":"demo:edge:authored","source":"demo:person:1","target":"demo:paper:1","label":"AUTHORED","properties":{"role":"author"}}
+{"type":"edge","oid":"demo:edge:invented","source":"demo:person:1","target":"demo:patent:1","label":"INVENTED","properties":{}}

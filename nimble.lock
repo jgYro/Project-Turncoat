@@ -6,21 +6,9 @@
       "vcsRevision": "5ffa3021d78e79f18482192548b8bd835002f7ab",
       "url": "https://github.com/nim-lang/htmlparser",
       "downloadMethod": "git",
-      "dependencies": [
-        "nim"
-      ],
+      "dependencies": ["nim"],
       "checksums": {
         "sha1": "4bdb724dcb3cd450d0a743fc21a5f9752ad8be7e"
-      }
-    },
-    "nim": {
-      "version": "2.2.10",
-      "vcsRevision": "3e3da86e4eaccd23f4ce43df9b0a31b16c707347",
-      "url": "https://github.com/nim-lang/Nim.git",
-      "downloadMethod": "git",
-      "dependencies": [],
-      "checksums": {
-        "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
       }
     },
     "picohttpparser": {
@@ -84,6 +72,18 @@
         "sha1": "a15b5860fb1926e682faf004ec1efc1d655d9b09"
       }
     },
+    "db_connector": {
+      "version": "0.1.0",
+      "vcsRevision": "29450a2063970712422e1ab857695c12d80112a6",
+      "url": "https://github.com/nim-lang/db_connector",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "4f2e67d0e4b61af9ac5575509305660b473f01a4"
+      }
+    },
     "checksums": {
       "version": "0.2.2",
       "vcsRevision": "0845c735a9746188b2257ee2cff672eb6ec26e8a",
@@ -131,6 +131,18 @@
       ],
       "checksums": {
         "sha1": "7ab5190b7ea21aab752bcd03f2ca2b71b048ec4f"
+      }
+    },
+    "yaml": {
+      "version": "0.16.0",
+      "vcsRevision": "e33c4487836ee17f58b0a1ea3a4cce5219334f63",
+      "url": "https://github.com/flyx/NimYAML",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "4f4ea128bcea453564cd42235a1aa24425902758"
       }
     },
     "wepoll": {
@@ -206,6 +218,32 @@
       ],
       "checksums": {
         "sha1": "f72b90fe3f4da09efa482de4f8729e7ee4abea2f"
+      }
+    },
+    "zero_functional": {
+      "version": "1.3.0",
+      "vcsRevision": "edf3b7f59119f75706da435c2b7f080a0cf4960c",
+      "url": "https://github.com/zero-functional/zero-functional",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim"
+      ],
+      "checksums": {
+        "sha1": "2dc01ca0925ac1c2dcb46a0c6d9c93c57a9cddec"
+      }
+    },
+    "grim": {
+      "version": "0.3.1",
+      "vcsRevision": "3c496c953ea5a749a6ce3545f208a1acce80383d",
+      "url": "https://github.com/ebran/grim",
+      "downloadMethod": "git",
+      "dependencies": [
+        "nim",
+        "yaml",
+        "zero_functional"
+      ],
+      "checksums": {
+        "sha1": "e5c21080af53c104b9e7ab71f3be10a728f07cac"
       }
     },
     "ws": {

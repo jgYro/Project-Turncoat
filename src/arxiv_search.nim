@@ -1,13 +1,26 @@
-import std/[asyncdispatch, httpcore, os, strutils, json, tables]
+import std/[asyncdispatch, asynchttpserver, httpcore, os, strutils, json, tables]
 import happyx
 import arxiv, arxiv_client, views
 import patents, patents_client, patent_views
 import institutions, institution_views
+import config, investigations
+import storage/sqlite
+import api/service
 
 const
   css = staticRead("../public/style.css")
+  themeCss = staticRead("../public/theme.css")
+  fontAssets = [
+    ("IBMPlexSans-Regular.woff2", staticRead("../public/fonts/IBMPlexSans-Regular.woff2")),
+    ("IBMPlexSans-Medium.woff2", staticRead("../public/fonts/IBMPlexSans-Medium.woff2")),
+    ("IBMPlexSans-SemiBold.woff2", staticRead("../public/fonts/IBMPlexSans-SemiBold.woff2")),
+    ("IBMPlexMono-Regular.woff2", staticRead("../public/fonts/IBMPlexMono-Regular.woff2"))]
   script = staticRead("../public/app.js")
   favicon = staticRead("../public/favicon.svg")
+  graphPage = staticRead("web/static/index.html")
+  graphCss = staticRead("web/static/app.css")
+  graphScript = staticRead("web/static/graph.js")
+  d3 = staticRead("web/static/vendor/d3.v7.min.js")
 
 proc responseHeaders(contentType: string): HttpHeaders =
   newHttpHeaders({"Content-Type": contentType,
@@ -15,14 +28,110 @@ proc responseHeaders(contentType: string): HttpHeaders =
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"})
 
-when isMainModule:
-  let port = parseInt(getEnv("PORT", "5000"))
-  if port < 1 or port > 65535: quit("PORT must be between 1 and 65535.")
-  serve getEnv("HOST", "127.0.0.1"), port:
-    var client = newArxivClient(getEnv("ARXIV_API_URL", "https://export.arxiv.org/api/query"))
-    var patentClient = newPatentsClient(getEnv("PATENTS_ORIGIN", "https://patents.google.com"))
-    var institutionStore = newInstitutionStore(getEnv("INSTITUTIONS_FILE", "data/institutions.json"))
-    var institutionToken = newInstitutionFormToken()
+proc serveProject*(config: AppConfig) =
+  let store = openStore(config.dbPath, config.fts)
+  defer: store.close()
+  let client = newArxivClient(getEnv("ARXIV_API_URL", "https://export.arxiv.org/api/query"))
+  let patentClient = newPatentsClient(getEnv("PATENTS_ORIGIN", "https://patents.google.com"))
+  let institutionStore = newInstitutionStore(getEnv("INSTITUTIONS_FILE", "data/institutions.json"))
+  let institutionToken = newInstitutionFormToken()
+  var investigationLimits = defaultInvestigationLimits()
+  investigationLimits.maxNodes = min(investigationLimits.maxNodes, config.limits.maxNodes)
+  investigationLimits.maxEdges = min(investigationLimits.maxEdges, config.limits.maxEdges)
+  let investigations = newInvestigationManager(store, patentClient, client, investigationLimits)
+  echo "Project Turncoat: http://" & config.host & ":" & $config.port
+  var server = newServer(config.host, config.port)
+  server.routes:
+
+    get "/assets/theme.css":
+      req.answer(themeCss, Http200, responseHeaders("text/css; charset=utf-8"))
+
+    get "/assets/fonts/{filename}":
+      var found = false
+      for (name, body) in fontAssets:
+        if name == filename:
+          req.answer(body, Http200, responseHeaders("font/woff2"))
+          found = true
+          break
+      if not found:
+        req.answer("Font not found", Http404, responseHeaders("text/plain; charset=utf-8"))
+
+    get "/graph":
+      let headers = responseHeaders("text/html; charset=utf-8")
+      headers["Cache-Control"] = "no-store"
+      req.answer(graphPage.replace("__TURNCOAT_TOKEN__", institutionToken), Http200, headers)
+
+    get "/assets/app.css":
+      req.answer(graphCss, Http200, responseHeaders("text/css; charset=utf-8"))
+
+    get "/assets/graph.js":
+      req.answer(graphScript, Http200, responseHeaders("text/javascript; charset=utf-8"))
+
+    get "/assets/d3.v7.min.js":
+      req.answer(d3, Http200, responseHeaders("text/javascript; charset=utf-8"))
+
+    post "/api/investigations":
+      var data: JsonNode
+      try:
+        if req.headers.getOrDefault("X-Turncoat-Token") != institutionToken:
+          raise apiError("Refresh the graph page before starting an investigation.", 403)
+        if req.body.len > 4096: raise newException(ValueError, "Request body is too large.")
+        let body = parseJson(req.body)
+        let id = investigations.startInvestigation(body{"publication"}.getStr)
+        data = %*{"id": id, "url": "/graph?investigation=" & id}
+        statusCode = 202
+      except ApiError as error:
+        statusCode = error.status
+        data = errorResponse(error.status, error.msg).body
+      except ValueError as error:
+        statusCode = 400
+        data = errorResponse(400, error.msg).body
+      for name, value in responseHeaders("application/json; charset=utf-8"):
+        outHeaders[name] = value
+      outHeaders["Cache-Control"] = "no-store"
+      return data
+
+    get "/api/investigations":
+      outHeaders["Content-Type"] = "application/json; charset=utf-8"
+      outHeaders["Cache-Control"] = "no-store"
+      return %*{"investigations": investigations.listInvestigations()}
+
+    get "/api/investigations/{id}":
+      var data: JsonNode
+      try:
+        data = investigations.investigationSnapshot(id)
+      except ApiError as error:
+        statusCode = error.status
+        data = errorResponse(error.status, error.msg).body
+      except ValueError as error:
+        statusCode = 400
+        data = errorResponse(400, error.msg).body
+      outHeaders["Content-Type"] = "application/json; charset=utf-8"
+      outHeaders["Cache-Control"] = "no-store"
+      return data
+
+    post "/api/investigations/{id}/{action}":
+      var data: JsonNode
+      try:
+        if req.headers.getOrDefault("X-Turncoat-Token") != institutionToken:
+          raise apiError("Refresh the graph page before changing an investigation.", 403)
+        if req.body.len > 4096: raise newException(ValueError, "Request body is too large.")
+        if action == "expand":
+          let body = parseJson(req.body)
+          investigations.expandInvestigation(id, body{"node"}.getStr, body{"spelling"}.getStr)
+        elif action == "cancel": investigations.cancelInvestigation(id)
+        else: raise apiError("Unknown investigation action.", 404)
+        data = %*{"id": id}
+        statusCode = 202
+      except ApiError as error:
+        statusCode = error.status
+        data = errorResponse(error.status, error.msg).body
+      except ValueError as error:
+        statusCode = 400
+        data = errorResponse(400, error.msg).body
+      outHeaders["Content-Type"] = "application/json; charset=utf-8"
+      outHeaders["Cache-Control"] = "no-store"
+      return data
 
     get "/institutions":
       for name, value in responseHeaders("text/html; charset=utf-8"):
@@ -154,3 +263,15 @@ when isMainModule:
 
     get "/health":
       req.answer("ok", Http200, responseHeaders("text/plain; charset=utf-8"))
+
+    get "/api/{rest:path}":
+      let response = handlePathRequest(store, config, req.url.path, req.url.query)
+      req.answer($response.body, HttpCode(response.status), responseHeaders("application/json; charset=utf-8"))
+
+    notfound:
+      req.answer($errorResponse(404, "Route not found").body, Http404,
+        responseHeaders("application/json; charset=utf-8"))
+  waitFor server.instance.serve(Port(config.port), handleRequest, config.host)
+
+when isMainModule:
+  serveProject(parseCommandLine(commandLineParams()).config)
