@@ -1,5 +1,6 @@
 ## Google Patents website adapter. All upstream markup becomes plain text.
-import std/[json, strutils, uri, times, htmlparser, xmltree]
+import std/[json, strutils, uri, times, xmltree]
+import pkg/htmlparser
 import api_errors
 
 type PatentOptions* = object

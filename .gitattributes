@@ -1,0 +1,4 @@
+# Public HTML excerpts retain source whitespace for parser regression tests.
+tests/fixtures/hit/*.html whitespace=-blank-at-eol,-blank-at-eof
+tests/fixtures/nuaa/*.html whitespace=-blank-at-eol,-blank-at-eof
+tests/fixtures/npu/*.html whitespace=-blank-at-eol,-blank-at-eof

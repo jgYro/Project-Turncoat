@@ -340,6 +340,72 @@ kbd {
     transform:rotate(360deg);
   }
 }
+.institution-shortcut {
+  margin:0 0 25px;
+  color:var(--muted);
+  font-size:12px;
+}
+.institution-shortcut a { color:var(--green); font-weight:600; margin-right:8px; }
+.institution-hero { padding-bottom:22px; }
+.institution-hero h1 { font-size:54px; }
+.institution-explainer {
+  border-left:2px solid #a8b19b;
+  padding:3px 20px;
+  margin-bottom:34px;
+  color:var(--muted);
+  font-size:12px;
+}
+.institution-explainer p { margin:7px 0; }
+.institution-explainer strong { color:var(--green); font-weight:600; }
+.institution-source-note { font-size:11px; }
+.institution-list-heading,.institution-card-top {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+}
+.institution-list-heading { margin-bottom:20px; }
+.institution-list-heading h2 { font:normal 27px var(--serif); margin:0; }
+.institution-list-heading p { color:var(--muted); font-size:11px; margin:5px 0 0; }
+.institution-list-heading>a { font-size:12px; white-space:nowrap; }
+.institution-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.institution-card {
+  display:flex;
+  flex-direction:column;
+  padding:25px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.institution-card h3 { font:normal 27px/1.25 var(--serif); margin:18px 0 8px; max-width:450px; }
+.institution-original { font-size:14px; color:#69715f; margin:0 0 15px; }
+.institution-assignee { font-size:12px; margin:10px 0 24px; color:var(--muted); }
+.institution-assignee span { display:block; color:var(--green); font-size:10px; margin-bottom:3px; }
+.institution-actions { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center; margin-top:auto; font-size:12px; }
+.institution-actions a { color:var(--green); }
+.institution-actions a:hover { text-decoration:underline; text-underline-offset:3px; }
+.institution-actions .institution-patents { color:white; background:var(--green); border-radius:4px; padding:10px 15px; }
+.remove-institution { background:transparent; color:var(--muted); font-size:11px; padding:6px; text-decoration:underline; }
+.institution-editor { margin-top:32px; border:1px solid var(--line); border-radius:5px; padding:28px; scroll-margin-top:20px; }
+.institution-editor h2 { font:normal 29px var(--serif); margin:8px 0; }
+.institution-editor p { color:var(--muted); font-size:12px; margin:6px 0; }
+.institution-form { margin-top:24px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start; }
+.institution-form .filter-group { margin:0; }
+.institution-form input { background:var(--surface); font-size:13px; }
+.institution-form .primary-button { margin:0; justify-self:start; align-self:center; }
+.institution-form #assignee-help { font-size:10px; margin:7px 0 0; }
+.institution-editor .institution-error { color:#914c29; border-left:2px solid #914c29; padding:10px 15px; margin-top:20px; }
+.institution-guide { max-width:720px; }
+@media(max-width:760px) {
+  .institution-hero h1 { font-size:44px; }
+  .institution-card { padding:20px; }
+  .institution-card h3 { font-size:24px; }
+  .institution-grid,.institution-form { grid-template-columns:1fr; }
+  .institution-editor { padding:22px; }
+  .institution-explainer { padding-left:14px; }
+}
 .workspace {
   display:grid;
   grid-template-columns:226px minmax(0,1fr);
@@ -1096,7 +1162,9 @@ a.page-button:hover {
   }
   .site-header nav {
     font-size:10px;
+    gap:12px;
   }
+  .site-header .brand-light,.site-header .brand-divider { display:none; }
   .hero {
     position:relative;
     overflow:hidden;

@@ -2,12 +2,13 @@ const form = document.querySelector('#search-form');
 const status = document.querySelector('#status');
 
 function resetLoading() {
+  if (!form) return;
   form.removeAttribute('aria-busy');
   document.body.classList.remove('is-searching');
   document.querySelector('.button-label').textContent = form.dataset.searchLabel || 'Search papers';
 }
 
-form.addEventListener('submit', () => {
+form?.addEventListener('submit', () => {
   document.body.classList.add('is-searching');
   form.setAttribute('aria-busy', 'true');
   document.querySelector('.button-label').textContent = 'Searching…';
@@ -20,14 +21,14 @@ document.querySelector('a[href="#search-guide"]').addEventListener('click', () =
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey &&
-      !event.target.matches('input, textarea, select, [contenteditable]')) {
+      !event.target.matches('input, textarea, select, [contenteditable]') && document.querySelector('#q')) {
     event.preventDefault();
     document.querySelector('#q').focus();
   }
 });
 
 for (const id of ['sort', 'size']) {
-  document.getElementById(id).addEventListener('change', () => {
+  document.getElementById(id)?.addEventListener('change', () => {
     if (location.search) form.requestSubmit();
   });
 }

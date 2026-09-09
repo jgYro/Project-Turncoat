@@ -1,4 +1,5 @@
-import std/[unittest, json, uri, strutils, tables, htmlparser, xmltree, sequtils, strtabs]
+import std/[unittest, json, uri, strutils, tables, xmltree, sequtils, strtabs]
+import pkg/htmlparser
 import happyx/spa/tag
 import api_errors, patents, patent_views
 

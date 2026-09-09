@@ -167,8 +167,8 @@ proc renderResults(options: SearchOptions; data: SearchResult; error: string): T
         "Showing the first 30,000 matches available through the API. Refine your search for more focused results."
 
 proc siteHeader*(source = "arxiv"): TagRef =
-  let name = if source == "patents": "patents" else: "arXiv"
-  let home = if source == "patents": "/patents" else: "/"
+  let name = if source == "patents": "patents" elif source == "institutions": "research" else: "arXiv"
+  let home = if source == "patents": "/patents" elif source == "institutions": "/institutions" else: "/"
   return buildHtml:
     tA(class = "skip-link", href = "#results"): "Skip to results"
     tHeader(class = "site-header wrap"):
@@ -182,9 +182,16 @@ proc siteHeader*(source = "arxiv"): TagRef =
         if source == "arxiv":
           tA(class = "active", href = "/", "aria-current" = "page"): "Papers"
           tA(href = "/patents"): "Patents"
-        else:
+        elif source == "patents":
           tA(href = "/"): "Papers"
           tA(class = "active", href = "/patents", "aria-current" = "page"): "Patents"
+        else:
+          tA(href = "/"): "Papers"
+          tA(href = "/patents"): "Patents"
+        if source == "institutions":
+          tA(class = "active", href = "/institutions", "aria-current" = "page"): "Institutions"
+        else:
+          tA(href = "/institutions"): "Institutions"
         tA(href = "#search-guide"):
           "Search guide "
           tSpan("aria-hidden" = "true"): "↗"
@@ -339,15 +346,22 @@ proc resultsSection(options: SearchOptions; data: SearchResult; error: string): 
       {renderResults(options, data, error)}
 
 proc siteFooter*(source = "arxiv"): TagRef =
-  let name = if source == "patents": "patents" else: "arXiv"
+  let name = if source == "patents": "patents" elif source == "institutions": "research" else: "arXiv"
   let provider = if source == "patents": "Google Patents" else: "arXiv"
   let providerUrl = if source == "patents": "https://patents.google.com" else: "https://arxiv.org"
   return buildHtml:
     tFooter(class = "site-footer wrap"):
       tSpan(class = "footer-brand"): "{name} / explorer"
       tP:
-        "Independent discovery interface. Metadata provided by "
-        tA(href = providerUrl, target = "_blank", rel = "noopener noreferrer"): {provider}
+        "Independent discovery interface. "
+        if source == "institutions":
+          "Searches via "
+          tA(href = "https://patents.google.com", target = "_blank", rel = "noopener noreferrer"): "Google Patents"
+          " and "
+          tA(href = "https://arxiv.org", target = "_blank", rel = "noopener noreferrer"): "arXiv"
+        else:
+          "Metadata provided by "
+          tA(href = providerUrl, target = "_blank", rel = "noopener noreferrer"): {provider}
         "."
       tButton(id = "copy-search", "type" = "button", hidden = ""): "Copy search link ↗"
     tDiv(class = "sr-only", id = "status", role = "status", "aria-live" = "polite")
@@ -379,6 +393,9 @@ proc renderPage*(options: SearchOptions; data = SearchResult(); error = ""): Tag
     tMain(class = "wrap"):
       {hero()}
       {searchForm(options)}
+      tP(class = "institution-shortcut"):
+        tA(href = "/institutions"): "Search by institution →"
+        " Presets for HIT, NUAA, NPU, and Beihang. Add your own."
       tDiv(class = "workspace"):
         {filters(options)}
         {resultsSection(options, data, error)}

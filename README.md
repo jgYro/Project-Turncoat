@@ -12,6 +12,7 @@ From this directory:
 
 ```sh
 nimble --nimbleDir:.nimble --accept install --depsOnly
+nimble --nimbleDir:.nimble setup
 nimble --nimbleDir:.nimble build
 ./bin/arxiv_search
 ```
@@ -49,6 +50,27 @@ curl 'http://127.0.0.1:5000/api/patents/US9014905B1'
 ```
 
 See [the API reference](docs/patents-api.md) for parameters, response fields, pagination, errors, caching, and testing overrides. The adapter uses Google Patents' **undocumented website endpoints**, which may change or become unavailable. It is an independent integration, not an official Google API. Google's [published patent datasets](https://github.com/google/patents-public-data) offer a separate BigQuery option for bulk data access.
+
+## Institution search presets
+
+Open **http://127.0.0.1:5000/institutions**, or select **Institutions** in the navigation. HIT, NUAA, NPU and Beihang are included as starting presets. **Add institution** saves a name, optional original-language name, and optional patent assignee name. The assignee defaults to the institution name; custom entries can be removed. Saved entries persist across app restarts in `data/institutions.json` (ignored by Git). Set `INSTITUTIONS_FILE` to use another local file. One running app instance owns the file.
+
+**Search patents** submits the card's assignee through the existing Google Patents adapter. Add topic keywords or other filters on the results page. **arXiv name mentions** searches the quoted institution name in arXiv metadata; arXiv provides no affiliation search filter, and this is not a complete list of that university's papers. These presets contact Google Patents or arXiv only. They do not call university websites or the faculty collectors. Adding or removing an institution makes no provider request.
+
+The page and forms use Nim/HappyX `buildHtml` and work without JavaScript. Form tokens protect changes, duplicate entries and invalid text are rejected, and failed submissions retain entered values. The preset names are explicit search strings; alternate assignee spellings are not automatically merged.
+
+## Raw faculty collection
+
+The independent Nim library in `src/faculty/` collects public faculty metadata from HIT, NUAA, and supported NPU school directories. It preserves Chinese/English source text, missing fields, institution-specific metadata, original response bodies and source URLs in JSON. Search and enumeration report partial results and crawl limits explicitly. NPU coverage is limited to Mathematics and Management; its central teacher portal returned an access challenge.
+
+See [the faculty library reference](docs/faculty.md) for endpoints, per-institution field differences, parsing limitations, async usage, HTTP settings and JSON examples, and [fixture provenance](tests/fixtures/SOURCES.md) for captured public sources. Faculty data is not connected to arXiv or Google Patents.
+
+```sh
+nimble --nimbleDir:.nimble --offline testFaculty
+nim c -r --path:src --out:bin/faculty_search examples/faculty_search.nim HIT 张昊春
+```
+
+The example makes live requests with a one-page/three-profile budget. The normal tests use static fixtures and a local Nim HTTP server. `testFacultyLive` is a separate, explicitly opt-in task for a small live smoke test.
 
 ## arXiv API behavior
 
@@ -96,8 +118,12 @@ Open `http://127.0.0.1:5010/patents`. This instance uses synthetic test data: se
 | `src/patents_client.nim` | Google Patents HTTP adapter, cache, and request queue |
 | `src/patent_views.nim` | HappyX patent search page |
 | `src/api_errors.nim` | Shared provider error type |
+| `src/institutions.nim` | Persistent local institution search presets and provider URLs |
+| `src/institution_views.nim` | HappyX institution cards and add/remove forms |
 | `docs/patents-api.md` | Patent JSON API reference |
+| `src/faculty/` | Independent raw faculty parsers, async collection and JSON |
+| `docs/faculty.md` | Faculty endpoints, API, source differences and limitations |
 | `public/` | Responsive styles and small progressive enhancements |
-| `tests/` | Unit and HTTP integration tests; synthetic fixtures |
+| `tests/` | Unit/HTTP tests, synthetic fixtures, and documented public faculty excerpts |
 
 Framework reference: [HappyX documentation](https://hapticx.github.io/happyx/). This is an independent interface and is not affiliated with arXiv or Google.

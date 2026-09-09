@@ -1,4 +1,5 @@
-import std/[unittest, strutils, uri, sequtils, htmlparser, xmltree, strtabs]
+import std/[unittest, strutils, uri, sequtils, xmltree, strtabs]
+import pkg/htmlparser
 import happyx/spa/tag
 import arxiv, views
 

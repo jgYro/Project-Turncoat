@@ -4,8 +4,12 @@ import std/[asyncdispatch, asynchttpserver, httpcore, json, net, strutils, uri]
 const
   searchFixture = staticRead("fixtures/patents.json")
   detailFixture = staticRead("fixtures/patent.html")
+  paperFixture = staticRead("fixtures/results.xml")
 
 proc handler(req: Request) {.async, gcsafe.} =
+  if req.url.path == "/arxiv":
+    await req.respond(Http200, paperFixture, newHttpHeaders({"Content-Type": "application/atom+xml"}))
+    return
   if req.url.path == "/patent/US1234567B1/en":
     await req.respond(Http200, detailFixture)
     return

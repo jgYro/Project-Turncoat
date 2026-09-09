@@ -1,7 +1,8 @@
-import std/[asyncdispatch, httpcore, os, strutils, json]
+import std/[asyncdispatch, httpcore, os, strutils, json, tables]
 import happyx
 import arxiv, arxiv_client, views
 import patents, patents_client, patent_views
+import institutions, institution_views
 
 const
   css = staticRead("../public/style.css")
@@ -20,6 +21,62 @@ when isMainModule:
   serve getEnv("HOST", "127.0.0.1"), port:
     var client = newArxivClient(getEnv("ARXIV_API_URL", "https://export.arxiv.org/api/query"))
     var patentClient = newPatentsClient(getEnv("PATENTS_ORIGIN", "https://patents.google.com"))
+    var institutionStore = newInstitutionStore(getEnv("INSTITUTIONS_FILE", "data/institutions.json"))
+    var institutionToken = newInstitutionFormToken()
+
+    get "/institutions":
+      for name, value in responseHeaders("text/html; charset=utf-8"):
+        outHeaders[name] = value
+      outHeaders["Cache-Control"] = "no-store"
+      return renderInstitutionsPage(institutionStore.allInstitutions(), institutionToken)
+
+    post "/institutions":
+      var message = ""
+      var fields = initTable[string, string]()
+      try:
+        fields = institutionFormFields(req.body, institutionToken)
+        institutionStore.addInstitution(fields.getOrDefault("name"),
+          fields.getOrDefault("originalName"), fields.getOrDefault("assignee"))
+      except ApiError as error:
+        message = error.msg
+        statusCode = error.status
+      except ValueError as error:
+        message = error.msg
+        statusCode = 400
+      except IOError, OSError:
+        message = "Could not save the institution. Check that the app's data folder is writable."
+        statusCode = 500
+      for name, value in responseHeaders("text/html; charset=utf-8"):
+        outHeaders[name] = value
+      outHeaders["Cache-Control"] = "no-store"
+      if message.len == 0:
+        statusCode = 303
+        outHeaders["Location"] = "/institutions#results"
+        return ""
+      return renderInstitutionsPage(institutionStore.allInstitutions(), institutionToken, message, fields)
+
+    post "/institutions/remove":
+      var message = ""
+      try:
+        let fields = institutionFormFields(req.body, institutionToken)
+        institutionStore.removeInstitution(fields.getOrDefault("id"))
+      except ApiError as error:
+        message = error.msg
+        statusCode = error.status
+      except ValueError as error:
+        message = error.msg
+        statusCode = 400
+      except IOError, OSError:
+        message = "Could not save the institution list. Check that the app's data folder is writable."
+        statusCode = 500
+      for name, value in responseHeaders("text/html; charset=utf-8"):
+        outHeaders[name] = value
+      outHeaders["Cache-Control"] = "no-store"
+      if message.len == 0:
+        statusCode = 303
+        outHeaders["Location"] = "/institutions#results"
+        return ""
+      return renderInstitutionsPage(institutionStore.allInstitutions(), institutionToken, message)
 
     get "/":
       var options = defaultOptions()

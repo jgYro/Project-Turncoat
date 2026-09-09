@@ -183,6 +183,9 @@ proc renderPatentPage*(options: PatentOptions; data: JsonNode = nil; error = "")
             tEm: "possibility."
           tP(class = "hero-description"): "Explore patents. Follow inventors. Connect the possibilities."
       {patentForm(options)}
+      tP(class = "institution-shortcut"):
+        tA(href = "/institutions"): "Search by institution →"
+        " Choose a university assignee or add your own institution."
       tDiv(class = "workspace"):
         {patentFilters(options)}
         tSection(class = "results", id = "results", tabindex = "-1", "aria-labelledby" = "results-title"):
