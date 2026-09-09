@@ -167,9 +167,10 @@ suite "Saved drill-down records":
       disk.insertNode("saved",NodeRecord(oid:"doc",label:"Paper",properties: %*{"title":"Original"}))
       disk.db.execute("DROP TABLE analysis_reports")
       disk.db.execute("DROP TABLE investigation_shares")
+      disk.db.execute("DROP TABLE analysis_jobs")
       disk.db.execute("PRAGMA user_version=1")
       disk.close(); disk = openStore(path)
-      check disk.db.scalarInt("PRAGMA user_version") == 3
+      check disk.db.scalarInt("PRAGMA user_version") == 4
       check disk.getNode("saved","doc").get.properties["title"].getStr == "Original"
       disk.saveReport(%*{"id":"persisted","dataset":"saved","node":"doc","kind":"ai","createdAt":"2026-09-09","rawResponse":"原文"})
       disk.close(); disk = openStore(path)

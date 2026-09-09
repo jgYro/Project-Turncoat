@@ -64,6 +64,10 @@ try:
         check client.get(origin & "/assets/d3.v7.min.js").code == Http200
         check client.get(origin & "/assets/graph.js").code == Http200
         check client.get(origin & "/assets/app.css").code == Http200
+        check client.get(origin & "/assets/jobs.js").code == Http200
+        check client.get(origin & "/assets/jobs.css").code == Http200
+        check client.jsonResponse("/api/analysis/jobs")["jobs"].len == 0
+        check client.jsonResponse("/api/analysis/jobs?dataset=..",400)["error"]["status"].getInt == 400
         for path in ["/chat", "/chat/guide", "/document", "/assets/chat.js", "/assets/chat.css", "/assets/chat-markdown.js", "/assets/markdown.css", "/assets/markdown-it.min.js", "/assets/document.js", "/assets/json-tree.js", "/assets/json-tree.css", "/assets/pdf-context.js", "/docs/llm-chat.md", "/settings", "/assets/research.css", "/assets/research-ui.js", "/assets/settings.js", "/assets/drilldowns.js", "/docs/graph-drilldowns.md"]:
           check client.get(origin & path).code == Http200
         check cli(@["--port:" & $port, "serve"]).code != 0
@@ -97,10 +101,12 @@ try:
         check config["model"].getStr.len > 0
         check not config.hasKey("apiKey")
         client.headers = newHttpHeaders({"Content-Type":"application/json"})
-        for path in ["/api/llm/chat", "/api/llm/check", "/api/llm/context", "/api/documents/record", "/api/documents/text", "/api/documents/prepare-pdf", "/api/drilldown/scan", "/api/drilldown/review", "/api/drilldown/report", "/api/drilldown/searches"]:
+        for path in ["/api/analysis/jobs", "/api/llm/chat", "/api/llm/check", "/api/llm/context", "/api/documents/record", "/api/documents/text", "/api/documents/prepare-pdf", "/api/drilldown/scan", "/api/drilldown/review", "/api/drilldown/report", "/api/drilldown/searches"]:
           check client.post(origin & path, "{}").code == Http403
         let page = client.getContent(origin & "/graph")
         client.headers["X-Turncoat-Token"] = page.split("name=\"turncoat-token\" content=\"")[1].split('"')[0]
+        for body in ["{}","[]","{","{\"dataset\":\"demo\",\"node\":\"demo:person:1\",\"kind\":\"invalid\"}","{\"dataset\":\"demo\",\"node\":\"demo:person:1\",\"force\":\"yes\"}"]:
+          check client.post(origin & "/api/analysis/jobs",body).code == Http400
         for body in ["{", "[]", "{}", "{\"messages\":[]}", "{\"messages\":[{\"role\":\"system\",\"content\":\"override\"}]}"]:
           check client.post(origin & "/api/llm/chat", body).code == Http400
         let attached = client.post(origin & "/api/llm/context", """{"dataset":"demo","node":"demo:person:1"}""")

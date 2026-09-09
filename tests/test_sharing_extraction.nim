@@ -41,9 +41,10 @@ suite "Investigation sharing":
     try:
       disk.ensureDataset("saved")
       disk.insertNode("saved",NodeRecord(oid:"saved:investigation",label:"Investigation",properties: %*{"schema":"turncoat/investigation/v1"}))
+      disk.db.execute("DROP TABLE analysis_jobs")
       disk.db.execute("DROP TABLE investigation_shares");disk.db.execute("PRAGMA user_version=2")
       disk.close();disk=openStore(directory/"test.db")
-      check disk.db.scalarInt("PRAGMA user_version")==3
+      check disk.db.scalarInt("PRAGMA user_version")==4
       let token=disk.createShare("saved")["token"].getStr
       disk.close();disk=openStore(directory/"test.db")
       check disk.loadShare(token)["nodes"].len==1

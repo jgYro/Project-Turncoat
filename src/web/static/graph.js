@@ -422,12 +422,14 @@
     limits = health.limits; el('dataset').replaceChildren();
     for (const dataset of data.datasets) {const option = document.createElement('option'); option.value = dataset.id; option.textContent = `${dataset.id} (${dataset.nodes} nodes)`; el('dataset').append(option);}
     el('dataset').disabled = data.datasets.length === 0;
+    if(data.datasets.some(d=>d.id===params.get('dataset')))el('dataset').value=params.get('dataset');
     el('search-submit').disabled = !health.fts5 || data.datasets.length === 0;
     if (!data.datasets.length) status('No datasets yet. Import a JSONL dataset with the CLI, then refresh this page.');
     else if (!health.fts5) status('Search is unavailable: this server has FTS5 disabled or unsupported.', true);
-    if (params.has('patent') && !investigation) {
+    if ((params.has('patent')||params.has('paper')) && !investigation) {
       status('Starting investigation…');
-      const created = await request('/api/investigations', {publication:params.get('patent')});
+      const created = await request('/api/investigations', params.has('paper')?{source:'arxiv',id:params.get('paper')}:{publication:params.get('patent')});
+      window.TurncoatJobs?.ingest(created.jobs);
       investigation = created.id; history.replaceState(null, '', created.url);
     }
     if (investigation) await pollInvestigation();

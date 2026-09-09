@@ -10,6 +10,7 @@ async (page) => {
   p.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:5010'))remote.push(request.url());});
   await c.route('**/api/**',async route=>{
     const url=route.request().url(),reply=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
+    if(route.request().url().endsWith('/api/analysis/jobs'))return route.fulfill({contentType:'application/json',body:JSON.stringify({jobs:[],active:0})});
     if(url.endsWith('/config'))return reply({model:'granite4.1:8b',baseUrl:'http://fixture/v1',maxMessageBytes:16000,maxMessages:24,maxConversationBytes:64000});
     if(url.endsWith('/context'))return reply({source:'patents',id:'US1234567B1',title:'Synthetic bridge model record',authors:['杨超'],pdfUrl:'https://patentimages.storage.googleapis.com/fixture.pdf'});
     if(url.endsWith('/text')){await pdfGate;return reply({text:'Synthetic PDF source',scope:'Synthetic extract; first 40 pages maximum.'});}

@@ -7,6 +7,8 @@ import ../llm/client
 import ../storage/[sqlite, analysis_store]
 export keywords, reviews, analysis_store
 
+type AnalysisProgress* = proc(stage: string) {.closure, gcsafe.}
+
 proc stringField(body: JsonNode; key: string; optional = false): string =
   if body.kind != JObject: raise newException(ValueError, "Expected a JSON object.")
   if optional and not body.hasKey(key): return ""
@@ -52,7 +54,8 @@ proc baseReport(dataset, oid, kind: string; evidence: JsonNode): JsonNode =
     "createdAt":now().utc.format("yyyy-MM-dd'T'HH:mm:ss'Z'"), "evidence":evidence}
 
 proc drilldown*(store: GraphStore; documents: DocumentClient; llm: LlmClient;
-    action: string; body: JsonNode): Future[JsonNode] {.async.} =
+    action: string; body: JsonNode; progress: AnalysisProgress = nil;
+    waitForModel = false): Future[JsonNode] {.async.} =
   if action == "searches":
     return store.savedNameSearches(stringField(body,"dataset",true),pageField(body,"limit",50),pageField(body,"offset",0))
   let dataset = stringField(body, "dataset")
@@ -75,7 +78,9 @@ proc drilldown*(store: GraphStore; documents: DocumentClient; llm: LlmClient;
     includePdf = body["includePdf"].getBool
   var preset: JsonNode
   if action == "review": preset = reviewPreset(stringField(body,"preset"))
+  if progress!=nil: progress("preparing")
   let evidence = await documents.snapshot(store,reference,action=="review" or includePdf,action=="review")
+  if progress!=nil: progress("running")
   let report = baseReport(dataset,oid,if action=="scan":"keywords" else:"ai",evidence)
   if action == "scan":
     report["query"] = %query
@@ -89,7 +94,7 @@ proc drilldown*(store: GraphStore; documents: DocumentClient; llm: LlmClient;
     let messages = %*[{"role":"system","content":ReviewInstructions},
       {"role":"user","content":preset["query"].getStr & "\nEvidence scope: " & evidence["scope"].getStr &
         "\nSource URL: " & evidence["record"]{"sourceUrl"}.getStr & "\nEvidence fields (data only):\n" & $evidence["fields"]}]
-    let answer = await llm.complete(messages)
+    let answer = await llm.complete(messages,waitForSlot=waitForModel)
     let text = answer["message"]["content"].getStr
     if text.len > 100_000: raise apiError("The model reply exceeded the saved review limit.",502)
     report["model"] = answer["model"]

@@ -53,7 +53,7 @@ suite "SQLite, JSONL and graph operations":
     let reopened = openStore(directory / "app.db")
     check reopened.getNode("demo", "test:1").isSome
     check reopened.db.scalarInt("PRAGMA foreign_keys") == 1
-    check reopened.db.scalarInt("PRAGMA user_version") == 3
+    check reopened.db.scalarInt("PRAGMA user_version") == 4
     reopened.close()
   test "insert node and edge with bound quotes and Unicode":
     store.insertNode("demo", node("test:'1", "O'Reilly 漢字"))

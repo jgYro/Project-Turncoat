@@ -10,6 +10,7 @@ async (page) => {
     p.on('pageerror',error=>errors.push(error.message));
     await c.route('**/api/**',async route=>{
       const url=route.request().url(),reply=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
+      if(route.request().url().endsWith('/api/analysis/jobs'))return route.fulfill({contentType:'application/json',body:JSON.stringify({jobs:[],active:0})});
       if(url.endsWith('/api/llm/config'))return reply({model:'fixture',baseUrl:'http://fixture/v1',maxMessageBytes:16000,maxMessages:24,maxConversationBytes:64000});
       if(url.endsWith('/api/llm/context')||url.endsWith('/api/documents/record'))return reply(record);
       if(url.endsWith('/api/documents/text')){extracts++;await gate;return fail?reply({error:{message:'Synthetic OCR unavailable.'}},503):reply({text:'PDF evidence · 电磁干扰',scope:'Docling OCR fixture; first 40 pages.'});}

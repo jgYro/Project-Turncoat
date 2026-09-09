@@ -1,5 +1,5 @@
 ## Async OpenAI-compatible Chat Completions transport; no provider SDK required.
-import std/[asyncdispatch, httpclient, httpcore, json, strutils]
+import std/[asyncdispatch, httpclient, httpcore, json, strutils, monotimes, times]
 import config
 import ../api_errors
 import ../bounded_http
@@ -19,7 +19,12 @@ proc exchange(http: AsyncHttpClient; url, body: string; verb: HttpMethod): Futur
   let text = await response.readBoundedBody(MaxLlmResponseBytes, "The model server returned too much data. Lower the output limit.")
   return (int(response.code), text)
 
-proc request(client: LlmClient; path: string; body = ""; verb = HttpGet): Future[JsonNode] {.async.} =
+proc request(client: LlmClient; path: string; body = ""; verb = HttpGet; waitForSlot = false): Future[JsonNode] {.async.} =
+  if waitForSlot:
+    let deadline = getMonoTime() + initDuration(milliseconds=client.config.timeoutMs*2)
+    while client.active >= client.config.maxConcurrent:
+      if getMonoTime()>=deadline: raise apiError("Timed out waiting for a model slot. Retry this job.",504)
+      await sleepAsync(100)
   if client.active >= client.config.maxConcurrent:
     raise apiError("The model is handling other requests. Try again when one finishes.", 429)
   inc client.active
@@ -51,10 +56,10 @@ proc request(client: LlmClient; path: string; body = ""; verb = HttpGet): Future
     http.close()
     dec client.active
 
-proc complete*(client: LlmClient; messages: JsonNode): Future[JsonNode] {.async.} =
+proc complete*(client: LlmClient; messages: JsonNode; waitForSlot = false): Future[JsonNode] {.async.} =
   let body = %*{"model": client.config.model, "messages": messages,
     "stream": false, "max_tokens": client.config.maxTokens, "temperature": 0.2}
-  let data = await client.request("/chat/completions", $body, HttpPost)
+  let data = await client.request("/chat/completions", $body, HttpPost, waitForSlot)
   let choices = data{"choices"}
   if choices == nil or choices.kind != JArray or choices.len == 0:
     raise apiError("The model server returned no assistant message.", 502)

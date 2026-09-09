@@ -75,6 +75,8 @@ proc paperCard(paper: Paper; index: int): TagRef =
             for category in paper.categories:
               tSpan(class = "tag"): {category}
           tDiv(class = "paper-links"):
+            tA(class = "investigate-link",href = attr("/graph?paper=" & encodeUrl(paper.id)),title = "Investigate with background keyword and AI analysis"):
+              "Investigate ↗"
             tButton(class = "analysis-link", "type" = "button", "data-analysis-source" = "arxiv",
                 "data-analysis-id" = attr(paper.id), "aria-label" = attr("AI Analysis of " & paper.title)):
               "AI Analysis ✳"
@@ -393,6 +395,8 @@ proc pageDocument*(title, description: string; content: TagRef; extraHead: TagRe
         tLink(rel = "stylesheet", href = "/assets/theme.css")
         tLink(rel = "stylesheet", href = "/assets/style.css")
         tScript(src = "/assets/app.js", "defer" = "")
+        tLink(rel = "stylesheet", href = "/assets/jobs.css")
+        tScript(src = "/assets/jobs.js", "defer" = "")
         {additions}
       tBody:
         {content}

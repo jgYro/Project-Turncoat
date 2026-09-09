@@ -14,7 +14,7 @@
       for(const rule of catalog.keywords.rules.filter(matches)){const row=make('tr'),type=make('td');type.append(make('span','research-tag '+rule.bucket,bucketName(rule.bucket)));const title=make('td','',rule.tag);title.append(note(rule.category));row.append(type,title,make('td','rule-terms',rule.terms.join(' · ')));t.body.append(row);}content.append(t.node);
       status(catalog.keywords.rules.length+' active keyword rules · '+t.body.children.length+' shown');
     }else if(view==='queries'&&catalog){
-      content.append(note(catalog.promptVersion+' · These queries run only when a review is requested. AI reviews require extracted PDF text.'),link('Docling OCR setup and extraction limits →','/docs/document-extraction.md'));
+      content.append(note(catalog.promptVersion+' · Investigate automatically starts the Defense and wartime relevance query and keyword analysis in the background. Other queries can be run from the document tab. AI reviews require extracted PDF text.'),link('Docling OCR setup and extraction limits →','/docs/document-extraction.md'));
       for(const preset of catalog.presets.filter(matches)){const card=make('article','research-card');card.append(make('h2','',preset.label),make('p','',preset.query));content.append(card);}
       const instructions=make('details','research-card');instructions.append(make('summary','','Shared review instructions'),make('pre','research-raw',catalog.instructions));content.append(instructions);status(catalog.presets.length+' review queries');
     }else if(view==='searches'){

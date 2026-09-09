@@ -64,7 +64,7 @@ proc runChecks() {.async.} =
     check initial["nodes"].len == 2
     check initial["job"]["state"].getStr == "running"
     try:
-      discard app.startInvestigation("US1234567B1")
+      app.expandInvestigation(id,initial["job"]["seed"].getStr)
       check false
     except ApiError as error: check error.status == 409
     await app.task
@@ -209,6 +209,25 @@ proc runChecks() {.async.} =
     check recovered.investigationSnapshot(id)["job"]["state"].getStr == "interrupted"
     check recovered.listInvestigations().len > 0
   mode = "normal"
+  block:
+    let app = manager()
+    let patentId = app.startInvestigation("US1234567B1")
+    let patentTask = app.task
+    let paperId = app.startInvestigation("1706.03762", "arxiv")
+    let paperTask = app.task
+    expect ApiError: discard app.startInvestigation("US7654321B1")
+    check app.investigationSnapshot(patentId)["busy"].getBool
+    check app.investigationSnapshot(paperId)["busy"].getBool
+    await all(patentTask,paperTask)
+    let snapshot = app.investigationSnapshot(paperId)
+    check snapshot["job"]["state"].getStr == "completed"
+    check not snapshot["busy"].getBool
+    let seed = store.getNode(paperId,snapshot["job"]["seed"].getStr).get
+    check seed.label == "Paper"
+    check seed.properties["arxivId"].getStr == "1706.03762v7"
+    check seed.properties["providerRecord"]["authors"].len > 0
+    check snapshot.nodeOf("Name mention","name","Ashish Vaswani")["properties"]["role"].getStr == "author"
+    check "id_list=1706.03762" in requests.join("\n")
   store.close()
 
 suite "Bounded provider investigations and durable evidence":

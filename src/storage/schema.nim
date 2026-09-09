@@ -1,6 +1,6 @@
 import driver
 
-const SchemaVersion* = 3
+const SchemaVersion* = 4
 
 proc initializeSchema*(db: Connection) =
   db.execute("PRAGMA foreign_keys = ON")
@@ -80,3 +80,17 @@ proc initializeSchema*(db: Connection) =
         snapshot TEXT NOT NULL CHECK(json_valid(snapshot) AND json_type(snapshot)='object'))""")
       db.execute("CREATE INDEX investigation_shares_dataset ON investigation_shares(dataset,created_at DESC)")
       db.execute("PRAGMA user_version = 3")
+  if version < 4:
+    db.transaction:
+      db.execute("""CREATE TABLE analysis_jobs (
+        id TEXT PRIMARY KEY NOT NULL,
+        dataset TEXT NOT NULL, node TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('keywords','ai')),
+        state TEXT NOT NULL,
+        dedupe_key TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+        job TEXT NOT NULL CHECK(json_valid(job) AND json_type(job)='object'),
+        FOREIGN KEY(dataset,node) REFERENCES nodes(dataset,oid) ON DELETE CASCADE)""")
+      db.execute("CREATE INDEX analysis_jobs_state ON analysis_jobs(state,created_at)")
+      db.execute("CREATE INDEX analysis_jobs_document ON analysis_jobs(dataset,node,created_at DESC)")
+      db.execute("PRAGMA user_version = 4")

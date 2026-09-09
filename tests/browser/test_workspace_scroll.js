@@ -11,6 +11,7 @@ async (page) => {
     await c.addInitScript(({reference,paragraph})=>{if(window===window.top&&location.pathname==='/chat')sessionStorage.setItem('turncoat-chat-v1:'+JSON.stringify(reference),JSON.stringify({messages:[{role:'user',content:'Summarize the attached record.'},{role:'assistant',model:'granite4.1:8b',content:'## Source summary\n\n'+paragraph.repeat(30)}]}));},{reference,paragraph});
     await c.route('**/api/**',async route=>{
       const url=route.request().url(),reply=data=>route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+      if(route.request().url().endsWith('/api/analysis/jobs'))return route.fulfill({contentType:'application/json',body:JSON.stringify({jobs:[],active:0})});
       if(url.endsWith('/config'))return reply({model:'granite4.1:8b',baseUrl:'http://fixture/v1',maxMessageBytes:16000,maxMessages:24,maxConversationBytes:64000});
       if(url.endsWith('/context')||url.endsWith('/record'))return reply(record);
       if(url.endsWith('/prepare-pdf'))return reply({ready:true});

@@ -1,0 +1,20 @@
+.jobs-nav { position:relative; flex-shrink:0; margin-left:auto; z-index:60; }
+.jobs-toggle { font:11px/1.5 var(--mono); color:var(--cyan); border:1px solid var(--control-line); background:var(--panel); border-radius:6px; padding:8px 12px; white-space:nowrap; }
+.jobs-toggle.has-running { border-color:var(--primary-line); box-shadow:0 0 18px #63e4dc18; }
+.jobs-panel { position:fixed; top:72px; right:16px; width:min(410px,calc(100vw - 24px)); max-height:min(620px,calc(100dvh - 100px)); overflow:auto; padding:18px; border:1px solid var(--primary-line); border-radius:8px; background:var(--panel); box-shadow:0 16px 50px #0009; overscroll-behavior:contain; }
+.jobs-panel h2 { margin:0 0 6px; font:500 18px var(--sans); color:var(--text); }
+.jobs-summary,.jobs-list>p { font:12px/1.6 var(--sans); color:var(--muted); }
+.job-row { display:grid; gap:6px; padding:14px 0; border-top:1px solid var(--line); }
+.job-row>a { font:500 13px/1.5 var(--sans); color:var(--text); overflow-wrap:anywhere; }
+.job-kind,.job-state { font:10px/1.5 var(--mono); color:var(--muted); }
+.job-state { color:var(--cyan); }
+.job-row.failed .job-state,.job-row.interrupted .job-state,.job-error { color:var(--error); }
+.job-error { font:11px/1.6 var(--sans); margin:2px 0; overflow-wrap:anywhere; }
+.jobs-toasts { position:fixed; top:82px; right:18px; z-index:55; display:flex; flex-direction:column; gap:10px; width:min(360px,calc(100vw - 24px)); pointer-events:none; max-height:calc(100dvh - 110px); overflow:auto; }
+.job-toast { position:relative; padding:16px 36px 16px 18px; background:var(--panel); color:var(--text); border:1px solid var(--primary-line); border-left:3px solid var(--cyan); border-radius:8px; box-shadow:0 12px 34px #0007; pointer-events:auto; }
+.job-toast.failed,.job-toast.interrupted { border-left-color:var(--error); }
+.job-toast strong { font:500 14px var(--sans); }
+.job-toast p { margin:8px 0; font:12px/1.5 var(--sans); color:var(--muted); overflow-wrap:anywhere; }
+.job-toast a { font:12px var(--sans); color:var(--cyan); }
+.job-toast-close { position:absolute; top:7px; right:7px; border:0; background:transparent; color:var(--muted); font-size:18px; padding:3px 6px; }
+@media(max-width:800px) { .site-header { position:relative; } .jobs-nav { position:absolute; right:16px; top:14px; } .jobs-toggle { padding:6px 8px; font-size:10px; } .jobs-panel { top:88px; } .jobs-toasts { top:100px; right:12px; } }

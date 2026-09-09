@@ -13,7 +13,8 @@
     active=key;const graph=key==='graph';el('graph-workspace').hidden=!graph;document.querySelector('.mission-bar').hidden=!graph;area.hidden=graph;
     el('graph-tab').setAttribute('aria-selected',String(graph));el('graph-tab').tabIndex=graph?0:-1;
     for(const [id,tab] of tabs){tab.panel.hidden=id!==key;tab.button.setAttribute('aria-selected',String(id===key));tab.button.tabIndex=id===key?0:-1;}
-    const tab=tabs.get(key);if(tab&&!tab.loaded){tab.loaded=true;tab.load();}
+    const tab=tabs.get(key);window.TurncoatJobs?.setViewing(tab&&!authors.has(tab.descriptor.label)?tab.ref:null);
+    if(tab&&!tab.loaded){tab.loaded=true;tab.ready=tab.load();}
     const selected=tab?.button||el('graph-tab');
     if(focus)selected.focus({preventScroll:true});
     selected.scrollIntoView({block:'nearest',inline:'nearest'});
@@ -23,22 +24,28 @@
     const tab=tabs.get(key);if(!tab)return;tab.dispose?.();tab.panel.remove();tab.wrap.remove();tabs.delete(key);
     if(active===key)select('graph',true);else save();
   }
-  function add(descriptor,activate=true){
+  function add(descriptor,activate=true,automatic=false){
     const key=JSON.stringify([descriptor.dataset,descriptor.id]);
-    if(tabs.has(key)){if(activate)select(key,true);return;}
+    if(tabs.has(key)){const tab=tabs.get(key);if(activate)select(key,true);if(automatic)tab.startAutomatic?.();return tab;}
     if(tabs.size>=12){status(el('drill-notice'),'Close a drill-down tab before opening another.',true);el('drill-notice').hidden=false;return;}
     const uid='drill-'+(++serial),wrap=make('div','workspace-tab'),tabButton=button(descriptor.title,()=>select(key),'workspace-tab-button');
     tabButton.id=uid;tabButton.setAttribute('role','tab');tabButton.setAttribute('aria-controls',uid+'-panel');tabButton.setAttribute('aria-selected','false');tabButton.tabIndex=-1;tabButton.title=descriptor.title;
     const remove=button('×',()=>close(key),'workspace-tab-close');remove.setAttribute('aria-label','Close '+descriptor.title);
     wrap.append(tabButton,remove);bar.append(wrap);
     const panel=make('section','drill-panel');panel.id=uid+'-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',uid);panel.hidden=true;area.append(panel);
-    const tab={key,descriptor,wrap,button:tabButton,panel,ref:{dataset:descriptor.dataset,node:descriptor.id},loaded:false};tabs.set(key,tab);
+    const tab={key,descriptor,wrap,button:tabButton,panel,ref:{dataset:descriptor.dataset,node:descriptor.id},loaded:false,automatic};tabs.set(key,tab);
     if(authors.has(descriptor.label))authorTab(tab);else documentTab(tab);
-    if(activate)select(key,true);else save();
+    if(activate)select(key,true);else save();return tab;
   }
   function openNode(node,dataset){
     if(!supported(node)||!dataset)return;
-    add({dataset,id:node.id,label:node.label,title:String(node.properties?.name||node.properties?.title||node.id).slice(0,160)});
+    add({dataset,id:node.id,label:node.label,title:String(node.properties?.name||node.properties?.title||node.id).slice(0,160)},true,true);
+  }
+  async function openReference(reference,reportId){
+    const ref={dataset:reference.dataset,node:reference.node};
+    const data=await api('document',ref);
+    const tab=add({dataset:ref.dataset,id:ref.node,label:data.reference.source==='arxiv'?'Paper':'Patent',title:data.record.title},true,false);
+    if(!tab)return;await tab.ready;if(reportId)await tab.openReport(reportId);
   }
   function header(tab,kind){
     const head=make('header','research-heading'),copy=make('div');copy.append(make('p','eyebrow',kind),make('h2','',tab.descriptor.title),note(tab.descriptor.dataset));head.append(copy);tab.panel.append(head);return head;
@@ -126,14 +133,16 @@
     const download=button('Download report JSON',()=>{if(!currentReport)return;const blob=new Blob([JSON.stringify(currentReport,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=make('a');a.href=url;a.download=currentReport.id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});download.disabled=true;
     controls.append(make('h3','','PDF context'),pdfStatus,retryPdf,make('h3','','Deterministic keywords'),queryLabel,query,pdfLabel,scan,link('View keyword rules →','/settings#rules'),make('h3','','AI analysis'),presetLabel,preset,prompt,review,model,note('PDF text is required. Reviews separate explicit references from tentative dual-use applications.'),link('View all AI queries →','/settings#queries'),make('h3','','Saved work'),historyLabel,history,historyMore,download);
     const sub=make('nav','research-subtabs');sub.setAttribute('aria-label','Document drill-down views');sub.setAttribute('role','tablist');right.append(sub);
-    const panes={},buttons={};let recordData=null,catalog=null,currentReport=null,pdfLoaded=false,pdfContext=null,busy=false,disposed=false,clock=null,savedPage=null,currentView='keywords';
+    const panes={},buttons={},reportsByKind={},seenReports=new Set(),loadingReports=new Set();let recordData=null,catalog=null,currentReport=null,pdfLoaded=false,pdfContext=null,disposed=false,savedPage=null,currentView='keywords',submitting=null;
     for(const [key,label] of [['keywords','Keywords'],['ai','AI review'],['pdf','PDF'],['source','Source']]){
       const pane=make('section','drill-result-pane research-scroll');pane.id=tab.panel.id+'-'+key;pane.hidden=key!=='keywords';pane.tabIndex=0;pane.setAttribute('role','tabpanel');right.append(pane);panes[key]=pane;
       const b=button(label,()=>show(key));b.id=pane.id+'-tab';b.setAttribute('role','tab');b.setAttribute('aria-controls',pane.id);b.setAttribute('aria-selected',String(key==='keywords'));b.tabIndex=key==='keywords'?0:-1;pane.setAttribute('aria-labelledby',b.id);sub.append(b);buttons[key]=b;
     }
-    panes.keywords.append(note('Scan source text using the active keyword rules. Results and their evidence snapshot are saved locally.'));panes.ai.append(note('Choose a review query and run the AI review. No inference runs when this tab opens.'));
+    panes.keywords.append(note('Keyword results and their PDF evidence are saved locally.'));panes.ai.append(note('The automatic review uses Defense and wartime relevance. Choose another query to run an additional review.'));
     sub.addEventListener('keydown',event=>{const keys=Object.keys(buttons),index=keys.findIndex(k=>buttons[k]===event.target);if(index<0||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const i=event.key==='Home'?0:event.key==='End'?3:(index+(event.key==='ArrowRight'?1:3))%4;show(keys[i]);buttons[keys[i]].focus();});
-    function controlsState(){scan.disabled=busy||!recordData;review.disabled=busy||!recordData?.record.pdfUrl;preset.disabled=busy||!catalog;query.disabled=busy;includePdf.disabled=busy;history.disabled=busy||!recordData;}
+    const pending=job=>['queued','preparing','running'].includes(job.state);
+    const ownJobs=()=>window.TurncoatJobs?.items().filter(j=>j.dataset===tab.ref.dataset&&j.node===tab.ref.node)||[];
+    function controlsState(){const jobs=ownJobs();scan.disabled=!!submitting||!recordData||jobs.some(j=>j.kind==='keywords'&&pending(j));review.disabled=!!submitting||!recordData||jobs.some(j=>j.kind==='ai'&&pending(j));preset.disabled=!catalog;history.disabled=!recordData;}
     function savedOptions(data,append=false){
       savedPage=data;if(!append){history.replaceChildren();const option=make('option','','Select a saved report…');option.value='';history.append(option);}
       for(const item of data.items){const option=make('option','',item.createdAt+' · '+(item.kind==='ai'?item.preset:'Keywords'+(item.query?' · '+item.query:'')));option.value=item.id;history.append(option);}historyMore.hidden=!data.hasMore;
@@ -143,9 +152,27 @@
       try{savedOptions(await api('history',{...tab.ref,offset:append?savedPage?.nextOffset||0:0}),append);if(currentReport)history.value=currentReport.id;}
       catch(error){status(message,error.message,true);}finally{historyMore.disabled=false;}
     }
-    function display(report){currentReport=report;download.disabled=false;const key=report.kind==='keywords'?'keywords':'ai';renderReport(panes[key],report);show(key);}
+    function display(report,activate=true){const key=report.kind==='keywords'?'keywords':'ai';reportsByKind[key]=report;renderReport(panes[key],report);seenReports.add(report.id);if(activate)show(key);else if(currentView===key){currentReport=report;download.disabled=false;}}
+    tab.openReport=async id=>{const report=await api('report',{...tab.ref,report:id});if(disposed)return;display(report);history.value=id;};
+    async function updateJobs(){
+      if(disposed||!recordData)return;
+      const jobs=ownJobs(),latest=['keywords','ai'].map(kind=>jobs.filter(j=>j.kind===kind).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]).filter(Boolean);
+      const activeJobs=jobs.filter(pending),labels={queued:'queued',preparing:'preparing PDF',running:'running',succeeded:'complete',failed:'failed',interrupted:'interrupted'};
+      if(latest.length){status(message,latest.map(j=>(j.kind==='ai'?'AI review':'Keywords')+': '+labels[j.state]+(j.error?' — '+j.error:'')).join(' · '),latest.some(j=>['failed','interrupted'].includes(j.state)));message.classList.toggle('research-working',activeJobs.length>0);}
+      for(const job of latest){
+        buttons[job.kind].textContent=(job.kind==='ai'?'AI review':'Keywords')+(pending(job)?' ◌':'');
+        if(!job.reportId||seenReports.has(job.reportId)||loadingReports.has(job.reportId))continue;
+        loadingReports.add(job.reportId);
+        try{const report=await api('report',{...tab.ref,report:job.reportId});if(!disposed){display(report,false);await loadHistory();}}
+        catch(error){if(!disposed)status(message,error.message,true);}
+        finally{loadingReports.delete(job.reportId);}
+      }
+      controlsState();
+    }
+    document.addEventListener('turncoat:analysis-jobs',updateJobs);
     async function show(key){
       currentView=key;
+      if(key==='keywords'||key==='ai'){currentReport=reportsByKind[key]||null;download.disabled=!currentReport;if(currentReport)history.value=currentReport.id;}
       for(const name of Object.keys(panes)){panes[name].hidden=name!==key;buttons[name].setAttribute('aria-selected',String(name===key));buttons[name].tabIndex=name===key?0:-1;}
       if(key!=='pdf'||!recordData||pdfLoaded)return;
       if(!recordData.record.pdfUrl){panes.pdf.replaceChildren(note('No PDF is listed for this record.'));return;}
@@ -154,19 +181,18 @@
       catch(error){pdfLoaded=false;panes.pdf.replaceChildren(note(error.message),button('Retry PDF',()=>show('pdf')));}
     }
     async function run(action){
-      if(busy||!recordData)return;busy=true;controlsState();const start=performance.now();
-      const text=action==='review'?'Reading PDF evidence (OCR if needed), then waiting for the AI review':'Scanning source text (OCR if needed)';
-      status(message,text+'…');message.classList.add('research-working');clock=setInterval(()=>status(message,text+' · '+Math.floor((performance.now()-start)/1000)+'s elapsed'),1000);
+      if(submitting||!recordData)return;submitting=action;controlsState();show(action==='review'?'ai':'keywords');status(message,'Queuing background analysis…');
       try{
-        if(action==='review'||includePdf.checked){
-          const extracted=await pdfContext?.prepare();
-          if(action==='review'&&!extracted)throw new Error((pdfContext?.error?.message||'No PDF is listed for this record.')+' PDF text is required for AI review.');
-        }
-        const report=await api(action,{...tab.ref,query:query.value.trim(),includePdf:includePdf.checked,preset:preset.value});
-        if(disposed)return;display(report);await loadHistory();status(message,'Saved locally · '+(action==='review'?'AI review':'Keyword scan')+' complete.');
+        await window.TurncoatJobs.start(tab.ref,{kind:action==='review'?'ai':'keywords',query:query.value.trim(),includePdf:includePdf.checked,preset:preset.value,force:true});
+        await updateJobs();
       }catch(error){if(!disposed)status(message,error.message,true);}
-      finally{clearInterval(clock);clock=null;busy=false;message.classList.remove('research-working');controlsState();}
+      finally{submitting=null;controlsState();}
     }
+    tab.startAutomatic=async()=>{
+      tab.automatic=true;if(!recordData)return;
+      try{await window.TurncoatJobs.start(tab.ref);tab.automatic=false;await updateJobs();}
+      catch(error){if(!disposed)status(message,error.message,true);}
+    };
     preset.addEventListener('change',()=>{prompt.textContent=catalog.presets.find(x=>x.id===preset.value)?.query||'';});
     history.addEventListener('change',async()=>{if(!history.value)return;const id=history.value;try{const report=await api('report',{...tab.ref,report:id});if(history.value===id&&!disposed){display(report);status(message,'Loaded saved report. No provider or model request was made.');}}catch(error){status(message,error.message,true);}});
     tab.load=async()=>{
@@ -186,11 +212,11 @@
           });
           pdfContext.prepare();
         }else pdfStatus.textContent='No PDF is listed. Keyword scans can use metadata; AI review requires PDF text.';
-        show(currentView);
+        show(currentView);if(tab.automatic)await tab.startAutomatic();else await updateJobs();
       }catch(error){status(message,error.message,true);const retry=button('Retry loading',()=>{retry.remove();tab.load();});panes.keywords.append(retry);}
       finally{controlsState();}
     };
-    tab.dispose=()=>{disposed=true;clearInterval(clock);};controlsState();
+    tab.dispose=()=>{disposed=true;document.removeEventListener('turncoat:analysis-jobs',updateJobs);};controlsState();
   }
   const menu=el('node-context-menu'),menuButton=el('context-drilldown');
   function hideMenu(restore=false){menu.hidden=true;if(restore)menuOrigin?.focus();menuAction=null;}
@@ -209,10 +235,12 @@
     if(event.key==='Delete'&&active!=='graph'){event.preventDefault();close(active);return;}
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'?1:buttons.length-1))%buttons.length;buttons[next].click();buttons[next].focus();
   });
-  window.TurncoatDrilldown={openNode,contextMenu,supported};
+  window.TurncoatDrilldown={openNode,openReference,contextMenu,supported};
   try{
     const saved=JSON.parse(sessionStorage.getItem(storageKey)||'null');
     if(Array.isArray(saved?.tabs))for(const item of saved.tabs.slice(0,12))if(typeof item.dataset==='string'&&/^[\w-]{1,64}$/.test(item.dataset)&&typeof item.id==='string'&&item.id.length<=512&&typeof item.title==='string'&&supported(item))add(item,false);
     select(tabs.has(saved?.active)?saved.active:'graph');
   }catch{select('graph');}
+  const params=new URLSearchParams(location.search);
+  if(params.has('dataset')&&params.has('document'))openReference({dataset:params.get('dataset'),node:params.get('document')},params.get('report')).catch(error=>{status(el('drill-notice'),error.message,true);el('drill-notice').hidden=false;});
 })();

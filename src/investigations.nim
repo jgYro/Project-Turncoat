@@ -1,8 +1,9 @@
 ## Bounded name exploration. Source mentions are document-scoped, never identities.
-import std/[asyncdispatch, json, strutils, times, sysrand]
+import std/[asyncdispatch, json, strutils, times, sysrand, tables]
 import checksums/sha1
 import arxiv, arxiv_client, patents, patents_client
 import storage/[sqlite, investigation_store]
+from documents import documentId
 
 const InvestigationSchema = "turncoat/investigation/v1"
 
@@ -14,7 +15,7 @@ type
     patents: PatentsClient
     papers: ArxivClient
     limits: InvestigationLimits
-    active: string
+    active: Table[string,Future[void]]
     task*: Future[void]
 
 proc defaultInvestigationLimits*(): InvestigationLimits =
@@ -116,8 +117,8 @@ proc savePatent(manager: InvestigationManager; id: string; data: JsonNode; full:
       if name.getStr.strip.len > 0:
         discard manager.mention(id, result, name.getStr, "assignee", data["url"].getStr)
 
-proc savePaper(manager: InvestigationManager; id: string; paper: Paper): string =
-  result = recordId(id, "paper", paper.id)
+proc savePaper(manager: InvestigationManager; id: string; paper: Paper; oid = ""): string =
+  result = if oid.len>0: oid else: recordId(id, "paper", paper.id)
   let url = "https://arxiv.org/abs/" & paper.id
   manager.putNode(id, NodeRecord(oid: result, label: "Paper", properties: %*{
     "arxivId": paper.id, "title": paper.title, "source": "arXiv", "sourceUrl": url,
@@ -219,6 +220,21 @@ proc expandRecord(manager: InvestigationManager; id, oid, spelling: string): Fut
     node = manager.store.getNode(id, oid).get
     manager.event(id, "Saved patent metadata and " & $data["inventors"].len & " inventor names.")
   if node.label == "Paper":
+    if node.properties{"providerRecord"}==nil:
+      let identifier = node.properties["arxivId"].getStr
+      if not manager.reserve(id,"Reading paper metadata from arXiv…"): return
+      var options = defaultOptions()
+      options.query = identifier; options.field = "id"
+      let data = await manager.papers.search(options)
+      if manager.stopped(id): return
+      var found = false
+      for paper in data.papers:
+        if paper.id==identifier or (not identifier.contains('v') and paper.id.startsWith(identifier & "v")):
+          discard manager.savePaper(id,paper,oid)
+          found = true
+          break
+      if not found: raise apiError("This paper was not returned by arXiv.",404)
+      node = manager.store.getNode(id,oid).get
     # The full source author list is preserved in providerRecord. Expose coauthors
     # when the paper is selected, keeping the first inventor expansion bounded.
     manager.store.transaction:
@@ -259,33 +275,39 @@ proc run(manager: InvestigationManager; id, oid, spelling: string): Future[void]
     for node in unfinished:
       node.properties["state"] = manager.job(id).properties["state"]
       manager.putNode(id, node)
-    manager.active = ""
+    manager.active.del(id)
 
-proc ensureIdle(manager: InvestigationManager) =
-  if manager.active.len > 0:
-    raise apiError("An investigation is running. Stop it or wait before starting another expansion.", 409)
+proc ensureIdle(manager: InvestigationManager; id = "") =
+  if id in manager.active:
+    raise apiError("This investigation is already expanding. Wait before expanding it again.",409)
+  if manager.active.len>=2:
+    raise apiError("Two investigations are expanding. Wait for one to finish before starting another.",409)
 
 proc launch(manager: InvestigationManager; id, oid, spelling: string) =
-  manager.ensureIdle()
+  manager.ensureIdle(id)
   manager.setState(id, "running")
-  manager.active = id
   manager.task = manager.run(id, oid, spelling)
+  manager.active[id] = manager.task
 
-proc startInvestigation*(manager: InvestigationManager; publication: string): string =
-  let publication = publicationId(publication)
+proc startInvestigation*(manager: InvestigationManager; publication: string; source = "patents"): string =
+  let publication = documentId(source,publication)
   manager.ensureIdle()
   result = "inv-"
   for value in urandom(12): result.add(toHex(value, 2).toLowerAscii)
-  let seed = recordId(result, "patent", publication)
+  let seed = recordId(result, if source=="arxiv":"paper" else:"patent", publication)
   manager.store.transaction:
     manager.store.ensureDataset(result)
     manager.save(result, %*{"schema": InvestigationSchema, "name": publication & " investigation",
       "seed": seed, "publicationNumber": publication, "state": "pending", "requests": 0,
       "failures": 0, "createdAt": stamp(), "events": [], "limits": %manager.limits,
       "namePolicy": "Provider names preserved; optional spellings are user supplied. No identity resolution."})
-    manager.putNode(result, NodeRecord(oid: seed, label: "Patent", properties: %*{
-      "title": publication, "publicationNumber": publication, "detailLoaded": false,
-      "source": "Google Patents", "sourceUrl": patentUrl(publication)}))
+    if source=="patents":
+      manager.putNode(result, NodeRecord(oid: seed, label: "Patent", properties: %*{
+        "title": publication, "publicationNumber": publication, "detailLoaded": false,
+        "source": "Google Patents", "sourceUrl": patentUrl(publication)}))
+    else:
+      manager.putNode(result, NodeRecord(oid:seed,label:"Paper",properties: %*{
+        "title":publication,"arxivId":publication,"source":"arXiv","sourceUrl":"https://arxiv.org/abs/" & publication}))
     manager.connect(result, rootId(result), seed, "investigates", %*{"evidence": "user_selection"})
   manager.launch(result, seed, "")
 
@@ -300,14 +322,14 @@ proc expandInvestigation*(manager: InvestigationManager; id, oid: string; spelli
 
 proc cancelInvestigation*(manager: InvestigationManager; id: string) =
   discard manager.job(id)
-  if manager.active == id and not manager.stopped(id):
+  if id in manager.active and not manager.stopped(id):
     manager.setState(id, "cancelled")
     manager.event(id, "Stopped. An in-flight provider request may finish; no further results will be added.")
 
 proc investigationSnapshot*(manager: InvestigationManager; id: string): JsonNode =
   let job = manager.job(id)
   result = %*{"id": id, "job": job.properties, "nodes": [], "links": [],
-    "busy": manager.active.len > 0}
+    "busy": id in manager.active}
   for node in manager.store.streamStoredNodes(id):
     result["nodes"].add(%*{"id": node.oid, "label": node.label, "properties": node.properties})
   for edge in manager.store.streamStoredEdges(id):

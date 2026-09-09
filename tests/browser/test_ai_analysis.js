@@ -19,6 +19,7 @@ async (page) => {
     await context.route('**/api/**',async route => {
       const url=route.request().url();
       const reply=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
+      if(route.request().url().endsWith('/api/analysis/jobs'))return route.fulfill({contentType:'application/json',body:JSON.stringify({jobs:[],active:0})});
       if(url.endsWith('/api/llm/config'))return reply({model:'granite4.1:8b',baseUrl:'http://fixture/v1',maxMessageBytes:16000,maxMessages:24,maxConversationBytes:64000});
       if(url.endsWith('/api/documents/record')||url.endsWith('/api/llm/context'))return reply(record);
       if(url.endsWith('/api/documents/text')){

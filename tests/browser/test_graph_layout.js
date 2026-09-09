@@ -15,6 +15,7 @@ async (page) => {
   await c.route('**/api/**',async route=>{
     const url=route.request().url(), reply=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
     assert(route.request().method()==='GET','Layout controls must not write or query providers');
+    if(route.request().url().endsWith('/api/analysis/jobs'))return route.fulfill({contentType:'application/json',body:JSON.stringify({jobs:[],active:0})});
     if (url.endsWith('/api/health'))return reply({fts5:true,limits:{neighborLimit:100,maxNodes:500,maxEdges:1000}});
     if (url.endsWith('/api/datasets'))return reply({datasets:[{id:'layout',nodes:nodes.length}]});
     if (url.endsWith('/api/investigations'))return reply({investigations:[{id:'layout',job}]});

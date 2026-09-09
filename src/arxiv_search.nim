@@ -9,6 +9,7 @@ import api/service
 import llm/service as llmService
 import documents, chat_views
 import analysis/service as analysisService
+import analysis/jobs as backgroundJobs
 import settings_views
 import storage/shares
 import docling_extract
@@ -47,6 +48,8 @@ const
   shareScript = staticRead("../public/share.js")
   shareCss = staticRead("../public/share.css")
   extractionGuide = staticRead("../docs/document-extraction.md")
+  jobsScript = staticRead("../public/jobs.js")
+  jobsCss = staticRead("../public/jobs.css")
 
 proc responseHeaders(contentType: string): HttpHeaders =
   newHttpHeaders({"Content-Type": contentType,
@@ -68,9 +71,52 @@ proc serveProject*(config: AppConfig) =
   investigationLimits.maxNodes = min(investigationLimits.maxNodes, config.limits.maxNodes)
   investigationLimits.maxEdges = min(investigationLimits.maxEdges, config.limits.maxEdges)
   let investigations = newInvestigationManager(store, patentClient, client, investigationLimits)
+  let analysisManager = newAnalysisJobManager(store,documentClient,llm)
   echo "Project Turncoat: http://" & config.host & ":" & $config.port
   var server = newServer(config.host, config.port)
   server.routes:
+
+    get "/assets/jobs.js":
+      req.answer(jobsScript,Http200,responseHeaders("text/javascript; charset=utf-8"))
+    get "/assets/jobs.css":
+      req.answer(jobsCss,Http200,responseHeaders("text/css; charset=utf-8"))
+    get "/api/analysis/jobs":
+      var data: JsonNode
+      try:
+        var dataset,node: string
+        for key,value in decodeQuery(req.url.query):
+          if key=="dataset": dataset=value
+          elif key=="node": node=value
+        data=store.analysisJobs(dataset,node)
+      except ValueError as error:
+        statusCode=400;data=errorResponse(400,error.publicMessage).body
+      for name,value in responseHeaders("application/json; charset=utf-8"): outHeaders[name]=value
+      outHeaders["Cache-Control"]="no-store"
+      return data
+    post "/api/analysis/jobs":
+      var data: JsonNode
+      try:
+        if req.headers.getOrDefault("X-Turncoat-Token")!=institutionToken: raise apiError("Refresh the workspace before starting analysis.",403)
+        if req.body.len>4096: raise newException(ValueError,"Analysis request is too large.")
+        let body=parseJson(req.body)
+        if body.kind!=JObject: raise newException(ValueError,"Analysis request must be an object.")
+        for key in ["dataset","node"]:
+          if body{key}==nil or body[key].kind!=JString: raise newException(ValueError,"Analysis requires dataset and node strings.")
+        for key in ["kind","preset","query"]:
+          if body{key}!=nil and body[key].kind!=JString: raise newException(ValueError,key & " must be a string.")
+        for key in ["includePdf","force"]:
+          if body{key}!=nil and body[key].kind!=JBool: raise newException(ValueError,key & " must be a boolean.")
+        data=analysisManager.startAnalysisJobs(body["dataset"].getStr,body["node"].getStr,
+          body{"kind"}.getStr("all"),body{"preset"}.getStr("wartime"),body{"query"}.getStr,
+          body{"includePdf"}.getBool(true),body{"force"}.getBool)
+        statusCode=202
+      except ApiError as error:
+        statusCode=error.status;data=errorResponse(error.status,error.publicMessage).body
+      except ValueError as error:
+        statusCode=400;data=errorResponse(400,error.publicMessage).body
+      for name,value in responseHeaders("application/json; charset=utf-8"): outHeaders[name]=value
+      outHeaders["Cache-Control"]="no-store"
+      return data
 
     get "/settings":
       let headers=responseHeaders("text/html; charset=utf-8")
@@ -308,8 +354,15 @@ proc serveProject*(config: AppConfig) =
           raise apiError("Refresh the graph page before starting an investigation.", 403)
         if req.body.len > 4096: raise newException(ValueError, "Request body is too large.")
         let body = parseJson(req.body)
-        let id = investigations.startInvestigation(body{"publication"}.getStr)
-        data = %*{"id": id, "url": "/graph?investigation=" & id}
+        if body.kind!=JObject: raise newException(ValueError,"Investigation request must be an object.")
+        for key in ["source","publication","id"]:
+          if body.hasKey(key) and body[key].kind!=JString: raise newException(ValueError,key & " must be a string.")
+        if store.pendingAnalysisCount()+2>MaxPendingAnalysisJobs: raise apiError("The analysis queue is full. Wait for a job to finish.",429)
+        let source = body{"source"}.getStr("patents")
+        let id = investigations.startInvestigation(body{"publication"}.getStr(body{"id"}.getStr),source)
+        let seed = investigations.investigationSnapshot(id)["job"]["seed"].getStr
+        let queued = analysisManager.startAnalysisJobs(id,seed)
+        data = %*{"id": id, "url": "/graph?investigation=" & id,"jobs":queued["jobs"]}
         statusCode = 202
       except ApiError as error:
         statusCode = error.status
